@@ -1,0 +1,12 @@
+{{- /* A figure and the code that drew it.
+
+  {{< plotfig "name" "alt text" >}} shows static/images/figures/<name>.svg,
+  written by `go run .` in figures/, then figures/<name>.go verbatim. The
+  page never carries a copy of the code: it is read from the file the image
+  was drawn by, so the two cannot drift apart. The CI redraws every figure
+  and fails if one differs from the committed image. */ -}}
+{{- $name := .Get 0 -}}
+{{- $alt := .Get 1 | default $name -}}
+{{- $src := readFile (printf "figures/%s.go" $name) -}}
+<img class="figure" src="{{ printf "images/figures/%s.svg" $name | relURL }}" alt="{{ $alt }}" loading="lazy">
+{{ printf "```go\n%s```\n" $src | .Page.RenderString (dict "display" "block") }}
