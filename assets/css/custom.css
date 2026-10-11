@@ -1,0 +1,39 @@
+/* go-numerics branding on Hextra (github.com/go-numerics/brand).
+ *
+ * The mark's gradient, #B794E4 -> #7445AD (branding/svg/color/go-numerics.svg).
+ * Hextra derives its whole primary scale (links, active sidebar entry,
+ * buttons) from these three variables.
+ *
+ * Light theme: #7445AD = hsl(267 43% 47%), the gradient's dark end
+ *              (6.57:1 on white).
+ * Dark theme:  #B794E4 = hsl(266 60% 74%), its light end. */
+:root {
+  --primary-hue: 267deg;
+  --primary-saturation: 43%;
+  --primary-lightness: 47%;
+}
+.dark {
+  --primary-hue: 266deg;
+  --primary-saturation: 60%;
+  --primary-lightness: 74%;
+}
+
+/* Tables: their headers stand out in the brand colour and their text is a
+ * size smaller than the prose. In the dark theme the header keeps the dark
+ * end: white on #B794E4 cannot be read. */
+.content table { font-size: 0.875em; }
+.content table th { background: #7445AD; color: #fff; }
+
+/* Figures drawn by go-plot have a white background: in the dark theme they
+ * sit on a white card rather than being inverted. */
+.content img.figure { background: #fff; border-radius: 0.5rem; padding: 0.5rem; }
+
+/* The version selector's list hangs from its button's right edge, so that it
+ * stays on screen at the end of the navbar. */
+.fs-version-select .hextra-nav-menu-items { left: auto !important; right: 0; transform: none !important; }
+
+/* The outdated-version banner (layouts/_partials/custom/content-begin.html). */
+.nd-outdated { margin-top: 1rem; padding: 0.75rem 1rem; border-radius: 0.5rem;
+  border: 1px solid #f59e0b; background: #fffbeb; color: #78350f; }
+.dark .nd-outdated { background: #451a03; color: #fde68a; border-color: #b45309; }
+.nd-outdated a { text-decoration: underline; font-weight: 600; }
