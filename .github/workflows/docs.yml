@@ -119,9 +119,18 @@ jobs:
   # library versions that drew it. It also fails if figures/go.mod requires
   # another version of a library than the release the pages say they describe
   # (params.libraries in hugo.yaml).
+  #
+  # It runs on arm64, not amd64, and that is deliberate. Go fuses a*b+c into
+  # one rounding on arm64 (and riscv64, loong64, ppc64le, s390x) but not on
+  # amd64, so the libraries' last digits depend on the architecture: Quad's
+  # error estimate for log(x)/sqrt(x) is 2.34e-13 on arm64 and 1.35e-13 on
+  # amd64, and Radau takes 285 steps for van der Pol there against 286. The
+  # figures print those numbers in their titles, so they are drawn where the
+  # libraries' READMEs measured them (arm64, which is also where a Mac redraws
+  # them), and compared on the same architecture.
   figures:
     name: every figure is what its code draws
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -186,11 +195,20 @@ jobs:
               # that adds them, they are not on main yet.
               *github.com/go-numerics/docs/*) continue ;;
             esac
+            # github.com answers curl's blob pages with 503 most of the time,
+            # while the raw host answers 200 for a file and 404 for a missing
+            # one. A blob link claims "this file exists at this ref", so ask
+            # the raw host (as the landing's links.yml and go-ndarray/docs#30).
+            probe=$u
+            case "$u" in
+              https://github.com/*/*/blob/*)
+                probe=https://raw.githubusercontent.com/$(printf '%s' "${u#https://github.com/}" | sed -E 's#^([^/]+/[^/]+)/blob/#\1/#; s/[?#].*$//') ;;
+            esac
             # Three attempts: one is a flake detector rather than a link
             # checker, and a lane that fails at random gets ignored.
             code=000
             for _ in 1 2 3; do
-              code=$(curl -sS -o /dev/null -w '%{http_code}' -L --max-time 25 "$u" 2>/dev/null) || true
+              code=$(curl -sS -o /dev/null -w '%{http_code}' -L --max-time 25 "$probe" 2>/dev/null) || true
               code=${code:-000}
               case "$code" in 2*|3*) break ;; esac
               sleep 3

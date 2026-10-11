@@ -96,7 +96,10 @@ _, err = integrate.Quad(func(x float64) float64 { return 1 / x }, 0, 1, nil)
 ```
 
 The three examples above, drawn with [go-plot](https://github.com/go-plot/plot)
-from the results they return; the markers are the solver's accepted steps:
+from the results they return; the markers are the solver's accepted steps.
+They were computed on arm64, as the numbers above were. On amd64, where Go
+does not fuse multiply-adds, the last digits differ: Quad's error estimate is
+1.35e-13 there instead of 2.34e-13, and Radau takes 286 steps instead of 285.
 
 {{< plotfig "lotka" "Prey and predator populations from SolveIVP with RK45, one marker per accepted step" >}}
 

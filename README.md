@@ -57,6 +57,12 @@ version of a library than the one the pages describe.
 cd figures && go run .
 ```
 
+The figures are drawn and compared on **arm64**. Go fuses multiply-adds
+there and not on amd64, so the libraries' last digits differ between the two,
+and so do numbers printed in three of the titles (Quad's error estimate,
+Radau's step count, the far tail of the log plots). Redraw them on arm64 —
+any Apple-silicon Mac, or `GOARCH=arm64` under emulation.
+
 ## Layout
 
 | Path | What |
