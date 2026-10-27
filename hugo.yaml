@@ -66,7 +66,7 @@ menu:
       weight: 3
       params:
         type: partial
-        partial: custom/version-select.html
+        partial: components/version-select.html
     - name: Theme
       weight: 4
       params:
@@ -142,7 +142,7 @@ params:
     displayDescription: true
     # "Created on ... by ... · Modified on ... by ..." at the foot of each page:
     # creation from data/pagehistory.json, which the build writes with
-    # themes/hextra/scripts/page-history.sh (it needs the full git history);
+    # the theme's cmd/pagehistory (it needs the full git history);
     # modification from git (enableGitInfo).
     history: true
     contextMenu:
