@@ -73,7 +73,6 @@ any Apple-silicon Mac, or `GOARCH=arm64` under emulation.
 | `figures/` | the Go module that draws every figure, one file each |
 | `layouts/_shortcodes/plotfig.html` | a figure and the code that drew it |
 | `static/images/figures/` | the figures, as `figures/` writes them |
-| `layouts/_partials/custom/version-select.html` | the version selector (reads `versions.json`) |
 | `layouts/_partials/custom/content-begin.html` | the outdated-version banner (reads `versions.json`) |
 | `layouts/_partials/favicons.html` | the brand's favicons |
 | `assets/css/custom.css` | the brand violet as Hextra's primary colour, the table headers, a white card under figures |
@@ -86,7 +85,7 @@ any Apple-silicon Mac, or `GOARCH=arm64` under emulation.
 ```sh
 git clone --recurse-submodules https://github.com/go-numerics/docs.git
 cd docs
-mkdir -p data && sh themes/hextra/scripts/page-history.sh > data/pagehistory.json
+mkdir -p data && go run github.com/tannevaled/hextra/cmd/pagehistory@v0.21.0 > data/pagehistory.json
 hugo server --baseURL http://localhost:1313/docs/0.1/
 ```
 
