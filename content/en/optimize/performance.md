@@ -81,6 +81,27 @@ How to read the columns:
     blocked norms. That is not done.
 - **`brentq`:** 32×, almost entirely because the 8 callbacks are Go calls.
 
+## SLSQP
+
+Measured with `tools/slsqpbench` (Go): interleaved rounds of
+`BenchmarkSLSQP*` (`-test.cpu 1`) and SciPy's `minimize(method='SLSQP')` on
+the same problems with one BLAS thread; it refuses to start above a 1-minute
+load of 8. Apple M4 Max, SciPy 1.18.1, 2026-10-30, medians of 7 rounds, load
+5.5 before and 6.2 after.
+
+| Benchmark | Go | SciPy 1.18.1 | Speed-up |
+|---|---|---|---|
+| HS71, analytic derivatives | 5.79 µs | 114 µs | 19.7× |
+| HS71, finite differences | 6.94 µs | 650 µs | 93.7× |
+| HS38 (bounds, 76 iterations) | 37.3 µs | 943 µs | 25.2× |
+| HS43 (3 nonlinear inequalities) | 6.75 µs | 165 µs | 24.4× |
+| Quad50 (n = 50, 100 bounds, 1 linear) | 4.66 ms | 4.65 ms | 1.0× |
+
+At n = 50 both run the same O(m·n²) subproblem per iteration in compiled
+code, and `trsm` dominates the Go profile; it has since been unrolled
+(bit-identical, half the kernel time) and the row will be re-measured on a
+quiet host.
+
 ## Reproducing
 
 ```sh
