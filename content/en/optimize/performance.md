@@ -87,20 +87,20 @@ Measured with `tools/slsqpbench` (Go): interleaved rounds of
 `BenchmarkSLSQP*` (`-test.cpu 1`) and SciPy's `minimize(method='SLSQP')` on
 the same problems with one BLAS thread; it refuses to start above a 1-minute
 load of 8. Apple M4 Max, SciPy 1.18.1, 2026-10-30, medians of 7 rounds, load
-5.5 before and 6.2 after.
+4.6 before and 5.4 after.
 
 | Benchmark | Go | SciPy 1.18.1 | Speed-up |
 |---|---|---|---|
-| HS71, analytic derivatives | 5.79 µs | 114 µs | 19.7× |
-| HS71, finite differences | 6.94 µs | 650 µs | 93.7× |
-| HS38 (bounds, 76 iterations) | 37.3 µs | 943 µs | 25.2× |
-| HS43 (3 nonlinear inequalities) | 6.75 µs | 165 µs | 24.4× |
-| Quad50 (n = 50, 100 bounds, 1 linear) | 4.66 ms | 4.65 ms | 1.0× |
+| HS71, analytic derivatives | 5.59 µs | 114 µs | 20.4× |
+| HS71, finite differences | 6.90 µs | 648 µs | 93.9× |
+| HS38 (bounds, 76 iterations) | 37.0 µs | 936 µs | 25.3× |
+| HS43 (3 nonlinear inequalities) | 6.83 µs | 163 µs | 23.8× |
+| Quad50 (n = 50, 100 bounds, 1 linear) | 3.35 ms | 4.59 ms | 1.4× |
 
 At n = 50 both run the same O(m·n²) subproblem per iteration in compiled
-code, and `trsm` dominates the Go profile; it has since been unrolled
-(bit-identical, half the kernel time) and the row will be re-measured on a
-quiet host.
+code. `trsm` dominated the Go profile and the row was at parity (1.0×)
+until it was unrolled to four columns per pass, bit-identical to the
+reference loop.
 
 ## Reproducing
 
