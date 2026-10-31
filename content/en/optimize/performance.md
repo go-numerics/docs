@@ -105,16 +105,18 @@ reference loop.
 ## trust-constr
 
 Same harness and rounds (`tools/slsqpbench`), 2026-10-31, medians of 7
-interleaved rounds, one thread each; the 1-minute load was 7.4 at the start
-and rose to 10–11 during the rounds.
+interleaved rounds, one thread each, Apple M4 Max, 2026-10-31, v0.4.1; the
+1-minute load was 7.1 before and 7.3 after, and 6.4–7.7 after each round,
+below the tool's limit of 8. An earlier run that began at 7.3 and ended at
+21.9 was discarded; `slsqpbench` now discards such runs itself.
 
 | Benchmark | Go | SciPy 1.18.1 | Speed-up |
 |---|---|---|---|
-| HS71, analytic derivatives | 523 µs | 33.9 ms | 64.7× |
-| HS71, finite differences | 460 µs | 35.2 ms | 76.6× |
-| HS38 (bounds) | 262 µs | 34.1 ms | 130× |
-| HS43 (3 nonlinear inequalities) | 65.1 µs | 7.53 ms | 116× |
-| Quad50 (n = 50, 100 bounds, 1 linear) | 27.7 ms | 75.2 ms | 2.7× |
+| HS71, analytic derivatives | 496 µs | 32.7 ms | 66.0× |
+| HS71, finite differences | 438 µs | 34.1 ms | 77.8× |
+| HS38 (bounds) | 277 µs | 32.1 ms | 116× |
+| HS43 (3 nonlinear inequalities) | 62.4 µs | 7.15 ms | 115× |
+| Quad50 (n = 50, 100 bounds, 1 linear) | 27.8 ms | 69.9 ms | 2.5× |
 
 SciPy's trust-constr is Python around NumPy/LAPACK calls; at n = 50 each
 iteration factorises the 101×151 barrier Jacobian, by pivoted QR with
