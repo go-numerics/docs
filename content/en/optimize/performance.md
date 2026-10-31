@@ -102,6 +102,24 @@ code. `trsm` dominated the Go profile and the row was at parity (1.0×)
 until it was unrolled to four columns per pass, bit-identical to the
 reference loop.
 
+## trust-constr
+
+Same harness and rounds (`tools/slsqpbench`), 2026-10-31, medians of 7
+interleaved rounds, one thread each; the 1-minute load was 7.4 at the start
+and rose to 10–11 during the rounds.
+
+| Benchmark | Go | SciPy 1.18.1 | Speed-up |
+|---|---|---|---|
+| HS71, analytic derivatives | 523 µs | 33.9 ms | 64.7× |
+| HS71, finite differences | 460 µs | 35.2 ms | 76.6× |
+| HS38 (bounds) | 262 µs | 34.1 ms | 130× |
+| HS43 (3 nonlinear inequalities) | 65.1 µs | 7.53 ms | 116× |
+| Quad50 (n = 50, 100 bounds, 1 linear) | 27.7 ms | 75.2 ms | 2.7× |
+
+SciPy's trust-constr is Python around NumPy/LAPACK calls; at n = 50 each
+iteration factorises the 101×151 barrier Jacobian, by pivoted QR with
+dlaqp2's norm downdating and go-simd reflectors here.
+
 ## Reproducing
 
 ```sh
