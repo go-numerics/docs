@@ -43,6 +43,7 @@ have `…Array()` accessors.
 | `Linprog` | `linprog` | revised simplex (default) or interior point; duals |
 | `Quadprog` (**released in v0.5.0**; design: docs/design-qp.md in the optimize repo) | MATLAB `quadprog`, OSQP | the API, validation and result blocks of ½xᵀPx + qᵀx s.t. equalities, inequalities, two-sided rows and bounds, dense or sparse (go-sparse) P and A; solved today: positive definite P by the Goldfarb–Idnani dual active-set method (infeasibility certificates, dependent and redundant rows; `QPSolver` keeps the factors between solves and `UpdateQ`, `UpdateBounds`, `UpdateMatrixValues` and `WorkingSet` repair them instead of restarting, Goldfarb–Idnani Prop. 8.1–8.2: 0.03 of the cold pivots at a 5% perturbation of q, 0.30 at 50%, 0.80 at 200%, same answer); a singular P, P = 0 (LP) or sparse constraints go to the ADMM method of OSQP v1.0.0 (`QPADMM`, picked by `QPAuto`: go-sparse quasi-definite LDLᵀ with AMD, Ruiz scaling, adaptive ρ, termination with the duality gap, infeasibility and unboundedness certificates, non-convexity detection, `Polish`, and `QPSolver` updates and warm start for ADMM too). On the 38 problems of the oracle fixture OSQP can read, and on 12 generated sparse ones (random QP, equality QP, Lasso, portfolio), status, iteration count and ρ-update count equal OSQP v1.0.0's on every one. Checked against OSQP, Clarabel and quadprog on 39 problems (x to 1e-7 and 1e-8) and against the SLSQP `lsei` chain on 600 random ones. On 33 Maros–Mészáros problems (tiny and small tiers, dense or sparse fixtures, pinned commit and SHA-256) ADMM at 1e-9 with polishing reaches Clarabel's objective on 27 and ends with OSQP v1.0.0's own status on the other 6 (iteration limit on four, a dual-infeasibility certificate on two), and the active set reaches it on all 13 with a positive definite P. Against OSQP v1.0.0 (same iterations on 25 of 25 generated instances) and the `quadprog` package, one thread, medians of 5 interleaved rounds ([performance]({{< relref "performance" >}})): ADMM takes 0.5–0.65× OSQP's time on dense n ≥ 500 and 0.8–0.9× on the larger portfolios, but 1.04–1.49× in the solve phase and 2.2–4.9× in the setup on small sparse problems (go-sparse's AMD, symbolic analysis and LDLᵀ solves: open defect there); the active set takes 0.68–0.76× the `quadprog` package's time from n = 500, 1.09× at n = 200, 2.0× at n = 50. `QPAuto` picks the active set up to n + m = 2500 |
 | `Brute` | `brute` | grid then Nelder–Mead polish |
+| `Direct` (**on main, release planned**) | `direct` | DIRECT and DIRECT-L (`Original` selects Jones' version), a statement-by-statement port of the C code SciPy wraps (MIT licence, NOTICE in the repository); deterministic, same points, `Nfev`, `Nit` and status as SciPy; `Workers` evaluates the points of one rectangle concurrently with identical results |
 | `CheckGrad`, `ApproxFprime` | `check_grad`, `approx_fprime` | forward differences |
 
 Gradients are optional everywhere. Without one, finite differences use the
@@ -135,6 +136,7 @@ noted.
 | `MinimizeScalar`, `Bracket` | 36 + 6 runs | identical x/nit/nfev/message on arithmetic-only functions |
 | `Linprog` | 46 problems vs HiGHS: Klee–Minty, cycling examples, degenerate, free and upper-bounded variables, redundant rows, infeasible, unbounded, random up to 60×40 | 46/46 statuses; objective error ≤ 1.8e-15 (simplex) and ≤ 2e-8 (interior point); solutions and duals inside SciPy's optimal sets |
 | `Brute` | 4 grids (the SciPy documentation example, Himmelblau, Rosenbrock 3-D) | x and f to 1e-9 |
+| `Direct` (on main) | 770 runs against SciPy 1.18.1 (linux/amd64): 27 objectives, DIRECT and DIRECT-L, fixed and Jones-updated `eps`, `len_tol`/`vol_tol`/`f_min` stops, `maxfun` and `maxiter` limits, NaN and ±Inf regions | on the 618 arithmetic-only runs: status, message, `nfev`, `nit`, x and fun bit for bit, and the first 25 evaluated points; on the transcendental ones: same status and counts on all, fun bit-identical on most; the SciPy documentation example gives `nfev` 2011 and 207 |
 
 How such close agreement is possible:
 
@@ -200,7 +202,7 @@ evaluation is at parity; the gap is in the solver's workspace handling.
 - **`linprog`:** HiGHS-class performance, MILP, singleton-row presolve,
   crossover and sparse matrices.
 - **Global optimisers:** differential_evolution, basinhopping, shgo,
-  dual_annealing.
+  dual_annealing (`Direct` is on main, release planned).
 
 ## Licence
 
