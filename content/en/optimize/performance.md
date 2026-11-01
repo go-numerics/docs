@@ -162,6 +162,29 @@ The active set (Goldfarb–Idnani) against the `quadprog` package, setup + solve
 1e-3 the ratio is 0.75 at n + m = 1550 and 1.09 at 3100, so it crosses 1 near
 2600. Reproduce with `cd tools/qpbench && GOWORK=off go run . --repo ../.. --rounds 5`.
 
+## Global optimisation
+
+`tools/globalbench` times `DifferentialEvolution`, `Basinhopping` and `Direct` against
+SciPy 1.18.1 in interleaved rounds, one thread, with a 1-minute load check after
+every round. Apple M4 Max, 2026-11-01, medians of 3 rounds, 1-minute load 5–8.
+**No row is slower than SciPy.**
+
+| Row | nfev ours / SciPy | ours | SciPy | ratio |
+| --- | --- | --- | --- | --- |
+| DE sphere N = 10 | 57761 / 57761 | 58.6 ms | 688 ms | 0.085 |
+| DE sphere N = 30 | 450481 / 450481 | 1.32 s | 5.9 s | 0.223 |
+| DE Rosenbrock N = 10 | 150161 / 150161 | 153 ms | 1.96 s | 0.078 |
+| DE Rastrigin N = 30 | 450791 / 450791 | 1.51 s | 6.49 s | 0.233 |
+| DE sphere N = 10, SciPy `vectorized=True` | 68411 / 467 calls | 69 ms | 182 ms | 0.379 |
+| DE overhead, trivial objective | 7650 trials | 1.04 µs per trial | 11.3 µs per trial | 0.093 |
+| `Basinhopping` Himmelblau, 100 steps | 871 / 871 | 836 µs | 10.4 ms | 0.081 |
+| `Direct`, the documentation example | 2011 / 2011 | 457 µs | 5.5 ms | 0.083 |
+| `Direct` Rosenbrock N = 5 | 619 / 619 | 51 µs | 1.84 ms | 0.028 |
+
+The repository's `docs/perf.md` has all 18 rows. DE is 2.4–2.6 times faster than
+SciPy's fastest, vectorised form. Reproduce with
+`cd tools/globalbench && GOWORK=off go run . --repo ../.. --rounds 7`.
+
 ## Reproducing
 
 ```sh
