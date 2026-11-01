@@ -122,6 +122,46 @@ SciPy's trust-constr is Python around NumPy/LAPACK calls; at n = 50 each
 iteration factorises the 101×151 barrier Jacobian, by pivoted QR with
 dlaqp2's norm downdating and go-simd reflectors here.
 
+## Quadprog
+
+`tools/qpbench` times `Quadprog` against OSQP v1.0.0 (the C core of the `osqp`
+1.1.3 wheel) and the `quadprog` 0.1.14 package on generated instances of the
+`osqp_benchmarks` classes (random QP, equality QP, portfolio, Lasso, Huber, SVM,
+control) and on dense positive definite problems. Apple M4 Max, 2026-11-01,
+medians of 5 interleaved rounds, one thread, 1-minute load 2.5 before and 2.4
+after, OSQP's own setup and solve timers, ε = 1e-3. Iteration counts equal
+OSQP's on all 25 instances; ratio = ours / OSQP.
+
+| Instance | n | m | setup ours | OSQP | ratio | solve ours | OSQP | ratio |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| eq-qp-n50 | 50 | 25 | 212 µs | 45.2 µs | 4.69 | 96.5 µs | 93.1 µs | 1.04 |
+| random-qp-n100 | 100 | 1000 | 9.58 ms | 4.28 ms | 2.24 | 16.1 ms | 14.7 ms | 1.09 |
+| lasso-n10 | 1020 | 1020 | 898 µs | 275 µs | 3.26 | 1.33 ms | 1 ms | 1.33 |
+| huber-n5 | 1505 | 1500 | 834 µs | 262 µs | 3.18 | 2.07 ms | 1.39 ms | 1.49 |
+| portfolio-k20 | 2020 | 2021 | 3.6 ms | 1.14 ms | 3.16 | 20.6 ms | 26.5 ms | **0.78** |
+| dense-n500 | 500 | 1050 | 145 ms | 222 ms | **0.65** | 90 ms | 166 ms | **0.54** |
+| dense-n1000 | 1000 | 2100 | 832 ms | 1.67 s | **0.50** | 511 ms | 918 ms | **0.56** |
+
+On the sparse problems the extra time is go-sparse's: AMD with the symbolic
+analysis is 17–80% of our setup and the LDLᵀ solves 29–73% of our solve phase,
+more than OSQP's whole solve phase on `huber-n5` (1.0 ms of 2.07 ms against
+1.39 ms). That is an open defect in go-sparse, written down in the repository's
+`docs/perf.md` with the full 25-row table, and not worked around here.
+
+The active set (Goldfarb–Idnani) against the `quadprog` package, setup + solve:
+
+| n | m | ours | quadprog | ratio |
+| --- | --- | --- | --- | --- |
+| 10 | 21 | 7.98 µs | 1.75 µs | 4.56 |
+| 50 | 105 | 270 µs | 134 µs | 2.01 |
+| 200 | 420 | 12.2 ms | 11.3 ms | 1.09 |
+| 500 | 1050 | 177 ms | 231 ms | **0.76** |
+| 1000 | 2100 | 1.46 s | 2.15 s | **0.68** |
+
+`QPAuto` chooses the active set up to n + m = 2500: against our own ADMM at
+1e-3 the ratio is 0.75 at n + m = 1550 and 1.09 at 3100, so it crosses 1 near
+2600. Reproduce with `cd tools/qpbench && GOWORK=off go run . --repo ../.. --rounds 5`.
+
 ## Reproducing
 
 ```sh
