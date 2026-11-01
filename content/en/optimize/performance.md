@@ -162,6 +162,17 @@ The active set (Goldfarb–Idnani) against the `quadprog` package, setup + solve
 1e-3 the ratio is 0.75 at n + m = 1550 and 1.09 at 3100, so it crosses 1 near
 2600. Reproduce with `cd tools/qpbench && GOWORK=off go run . --repo ../.. --rounds 5`.
 
+## Global optimisation
+
+`tools/globalbench` times `DifferentialEvolution` (sphere, Rosenbrock and Rastrigin at
+N = 2, 10 and 30, and SciPy's vectorised form), `Basinhopping` (Himmelblau,
+L-BFGS-B) and `Direct` (the SciPy documentation example, Rosenbrock, sphere)
+against SciPy 1.18.1 in interleaved rounds, one thread, with a 1-minute load
+check after every round. **The table is not measured yet**: the build machine's
+load average was above the tool's limit of 8 all day, so no number is claimed
+(the repository's `docs/perf.md` lists the rows and the rule that flags a
+row as slower). Run `cd tools/globalbench && GOWORK=off go run . --repo ../.. --rounds 7`.
+
 ## Reproducing
 
 ```sh
