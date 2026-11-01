@@ -208,8 +208,7 @@ evaluation is at parity; the gap is in the solver's workspace handling.
   crossover and sparse matrices.
 - **Global optimisers:** shgo, dual_annealing, DE `init='sobol'` and
   `'halton'` (`Direct`, `DifferentialEvolution` and `Basinhopping` are released in
-  v0.6.0; the comparison of their times with SciPy is built
-  (`tools/globalbench`) but not measured yet, see [performance]({{< relref "performance" >}})).
+  v0.6.0; no row slower than SciPy, see [performance]({{< relref "performance" >}})).
 
 ## Licence
 
