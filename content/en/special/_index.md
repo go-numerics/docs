@@ -109,6 +109,9 @@ Method and full table: [Performance]({{< relref "special/performance" >}}).
 | Bessel | `J0`, `J1`, `Jn`, `Jv`, `Y0`, `Y1`, `Yn`, `Yv`, `I0`, `I1`, `In`, `Iv`, `K0`, `K1`, `Kn`, `Kv`, `I0e`, `I1e`, `Ive`, `K0e`, `K1e`, `Kve`, `JnZeros` |
 | elliptic | `EllipK`, `EllipKm1`, `EllipE` |
 
+Complex arguments: [`special/cmplx`]({{< relref "special/complex" >}}),
+a drop-in superset of `math/cmplx` measured the same way (new in v0.4.0).
+
 Conventions: functions return NaN outside their domain and ±Inf at poles,
 as the IEEE 754 operations do; nothing panics on a float argument. Edge
 values follow SciPy's where SciPy's are mathematically sound; the exceptions
