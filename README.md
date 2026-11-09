@@ -28,7 +28,9 @@ them**, or `main` while none is tagged:
 
 `https://go-numerics.github.io/docs/` redirects to `latest/`. Each push to
 `main` replaces the directory of the version it describes, and nothing else.
-The pages describe **optimize v0.1.0, integrate v0.1.0 and special v0.1.0**,
+The pages describe **optimize v0.1.0, integrate v0.1.0 and special v0.5.7**
+(special's performance pages are still those of v0.1.0, named in their own
+header comments, until a refbench run at a load below 8 is recorded),
 published under `0.1/`.
 
 To document a new release, set its entry in `params.libraries`, require the

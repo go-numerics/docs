@@ -4,7 +4,7 @@ weight: 20
 description: "How the error is measured against mpmath, the headline results, the algorithms and their sources, and the known limitations."
 ---
 
-<!-- From go-numerics/special v0.1.0, docs/accuracy.md: the text is the library's, with its links pointed into this site. Change it there first. -->
+<!-- From go-numerics/special v0.5.7, docs/accuracy.md: the text is the library's, with its links pointed into this site. Change it there first. -->
 
 Accuracy is what this package sells, so it is measured, published and
 enforced by the test suite, not asserted.
@@ -46,8 +46,19 @@ reverse) is reported as `wrong`.
 **Budgets.** `TestAccuracy` fails if any region's maximum error exceeds its
 budget (`budgets_test.go`: 1.5 times the error measured when the budgets
 were generated, at least 1 ulp). The suite runs on amd64, arm64, 386, arm,
-riscv64, loong64, ppc64le and s390x in CI: architectures where Go fuses
-multiply-adds and ones where it does not must all meet the same budgets.
+riscv64, loong64, ppc64le and s390x in CI.
+
+**Same bits on every architecture.** Go may fuse `x*y + z` into one
+multiply-add, and does on arm64, ppc64le, s390x, riscv64 and loong64 but
+not on amd64, 386 or arm; package math's Exp, Log, Pow, Sin, ... also
+differ by architecture (assembly versions, or pure Go compiled with
+fusion). Every product here is therefore rounded explicitly
+(`float64(a*b)`) or fused on purpose with `math.FMA` — `tools/fmalint`
+checks the source, and its `--objdump` mode checks the arm64 binaries —
+and those math functions come from `internal/libm`, Go's pure-Go
+implementations with the same treatment. `TestArchHash` compares the
+output bits of every public function on a fixed grid with
+`testdata/archhash.golden` in every CI lane.
 
 Regenerate:
 
@@ -88,13 +99,25 @@ at or below SciPy; where both are "wrong" the row is bold too.
 
 Two building blocks run through everything:
 
-- **Double-double arithmetic** (`internal/dd`): error-free transformations
+- **Double-double arithmetic** (`github.com/go-numerics/special/dd`, a
+  public package since v0.3.0; fuzzed against `math/big` with the error bounds
+  of the double-word algorithms: Add 3u², Mul 5u², Div 15u²+56u³, u = 2⁻⁵³):
+  error-free transformations
   (Knuth's TwoSum, Dekker's Fast2Sum, FMA-based TwoProd) and the double-word
   algorithms of Joldes, Muller & Popescu (ACM TOMS 44(2), 2017). `dd.Exp`
   and `dd.Log` are table-driven after Tang (ACM TOMS 15(2), 1989 and 16(4),
   1990), carried to double-double (about 2^-76 and 2^-72 relative), with
   300-bit mpmath tables.
-- **Fitted polynomials** (`testdata/gen/fit.py`, `zz_*_coeffs.go`): Chebyshev
+- **Float64 kernels** (`kernels.go`): table-driven exp and log after Tang
+  in the arrangement of ARM's optimized-routines (exact Cody–Waite / TwoProd
+  reductions, 400-bit tables from `go -C tools run ./genkernel`)
+  returning an unevaluated hi + lo — exp to about 2^-68 relative, log to
+  2^-68 absolute — at a few floating-point operations; the elementary
+  families below use them instead of `dd` on their main paths,
+  which remains for the tails and for the incomplete gamma/beta functions.
+- **Fitted polynomials** (`testdata/gen/fit.py` and, for the tables added
+  with the float64 kernels, the Go port `go -C tools run ./genfit`;
+  `zz_*_coeffs.go`): Chebyshev
   interpolants of a well-chosen *regular part* of a function, fitted to
   mpmath at 200 bits on short pieces, degree chosen so that the
   interpolation error is below 2^-64, constant term kept in double-double.
@@ -104,25 +127,25 @@ Two building blocks run through everything:
 
 | function | algorithm | source |
 |---|---|---|
-| `Gamma` | Γ(1+t) = 1 + t(t-1)F(t) on [-1/2, 1] with F fitted; exact-factor recurrence (x - k is exact) carried in double-double for 0 < x < 10 and -34 < x < 0; Stirling's series (DLMF 5.11.1) with (x-1/2)log x - x in double-double above 10; reflection with sin(πx) reduced exactly below -34; integers from a correctly rounded factorial table | DLMF 5.5, 5.11; core fitted to mpmath |
-| `LogGamma`, `LogGammaSign`, `GammaSign` | log1p of Γ(1+t)-1 near the zeros at 1 and 2; Stirling in double-double above 10; exact factors for -34 < x < 0; reflection below | DLMF 5.11.1, 5.5.3 |
-| `Digamma` | ψ(1+t) = (t - r)D(t) with the positive zero r in double-double and D fitted (the form of Boost.Math's `digamma_imp_1_2`); recurrence with double-double reciprocals; asymptotic series above 10 (DLMF 5.11.2); for -40 < x < 0, exact-factor recurrence, redone with a 2^-100 evaluation when the terms cancel (near the negative zeros); reflection with cot(πx) in double-double below | DLMF 5.5, 5.11; Boost.Math digamma.hpp |
-| `Polygamma` | (-1)^(n+1) n! ζ(n+1, x) | DLMF 25.11.12 |
-| `Beta`, `LogBeta` | below 10, Γ(a)Γ(b)/Γ(a+b) from the double-double core with the rounding of a+b corrected to first order; above, log Γ(b) - log Γ(a+b) as one cancellation-free Stirling expression (-a log b - b log1pmx(a/b) - (a-1/2) log1p(a/b) + S(b) - S(a+b)) added to log Γ(a) | DLMF 5.11.1, 5.12.1 |
-| `Erf`, `Erfc`, `Erfcx` | x E(x²) for \|x\| <= 1/2; erfcx fitted on [1/2, 8] and as x·erfcx(x) in 1/x² beyond (the Gaussian factor removed, as in Cody 1969); exp(-x²) from x² in double-double, multiplied in before the single rounding | Cody, Math. Comp. 23 (1969); DLMF 7.12 |
-| `Ndtr`, `LogNdtr` | erfc of -x/√2 carried in double-double (the rounding of x/√2 is what costs SciPy up to 1e12 ulp in the lower tail); log Φ as log erfcx(z) - z² - log 2 in the lower tail and log1p(-Φ(-x)) in the upper | DLMF 7.2, 7.12 |
-| `ErfInv`, `ErfcInv`, `Ndtri` | Boost.Math's 64-bit rational approximations (`erf_inv_imp`) as the guess, then one Halley step whose relative residual comes from the double-double erfc (so subnormal arguments keep full accuracy) | Boost.Math detail/erf_inv.hpp (J. Maddock, BSL-1.0) |
+| `Gamma` | Γ(1+t) = 1 + t(t-1)F(t) on [-1/2, 1] with F fitted; exact-factor recurrence (x - k is exact), the product carried as hi + lo for 1 <= x < 10 and in double-double for 0 < x < 1 and -34 < x < 0 (there and in the reflection region, a float64 evaluation with a proven error bound returns the double-double path's float64 bit for bit whenever the bound decides the rounding: [gamma-fastpath.md](https://github.com/go-numerics/special/blob/v0.5.7/docs/gamma-fastpath.md)); Stirling's series (DLMF 5.11.1) above 10, (x-1/2)log x - x + S(x) formed from the log kernel with every leading sum exact and S as hi + lo (about 2^-63 absolute), then the exp kernel; reflection with sin(πx) reduced exactly below -34; integers from a correctly rounded factorial table | DLMF 5.5, 5.11; core fitted to mpmath |
+| `LogGamma`, `LogGammaSign`, `GammaSign` | log1p of Γ(1+t)-1 near the zeros at 1 and 2; the same Stirling expression above 10; exact factors for -34 < x < 0; reflection below | DLMF 5.11.1, 5.5.3 |
+| `Digamma` | ψ(1+t) = (t - r)D(t) with the positive zero r in double-double and D fitted (the form of Boost.Math's `digamma_imp_1_2`); recurrence with double-double reciprocals; on [2, 10) ψ fitted directly (constant and linear terms exact); asymptotic series above 10 (DLMF 5.11.2) with log x from the log kernel; for -40 < x < 0, exact-factor recurrence, redone with a 2^-100 evaluation when the terms cancel (near the negative zeros); reflection with cot(πx) in double-double below | DLMF 5.5, 5.11; Boost.Math digamma.hpp |
+| `Polygamma` | (-1)^(n+1) n! ζ(n+1, x); for n = 1, ψ'(x) directly: the asymptotic series from 10 with its two leading terms as hi + lo, the recurrence below with every 1/(x+k)² as hi + lo | DLMF 25.11.12, 5.15.8 |
+| `Beta`, `LogBeta` | below 10, Γ(a)Γ(b)/Γ(a+b) from the double-double core with the rounding of a+b corrected to first order; above, log Γ(b) - log Γ(a+b) as one cancellation-free Stirling expression (-a log b - b log1pmx(a/b) - (a-1/2) log1p(a/b) + S(b) - S(a+b)) added to log Γ(a), or for 10 <= a <= b <= 64a the three Stirling log-gammas combined directly (bounded cancellation); the series of log1p(x) - x below x = 1/64 and S(b) - S(a+b) with the differences of powers factored; float64 kernels throughout | DLMF 5.11.1, 5.12.1 |
+| `Erf`, `Erfc`, `Erfcx` | x E(x²) for \|x\| <= 1/2; erfcx fitted on [1/2, 8] and as x·erfcx(x) in 1/x² beyond (the Gaussian factor removed, as in Cody 1969); exp(-x²) from x² carried exactly (exp kernel), multiplied in before the single rounding; the pieces evaluated with their constant and linear terms exact | Cody, Math. Comp. 23 (1969); DLMF 7.12 |
+| `Ndtr`, `LogNdtr` | erfc of -x/√2 carried in double-double (the rounding of x/√2 is what costs SciPy up to 1e12 ulp in the lower tail); log Φ as log erfcx(z) - z² - log 2 in the lower tail, with log erfcx fitted directly (and as log(z erfcx z) in 1/z² beyond 8), and log1p(-Φ(-x)) in the upper | DLMF 7.2, 7.12 |
+| `ErfInv`, `ErfcInv`, `Ndtri` | evaluated directly, no iteration: erfinv(p) = p R(p²) for \|p\| <= 1/2 and erfcinv(q) = X(√(-log q)) on 20 pieces down to the smallest subnormal q, both fitted to mpmath; -log q from the log kernel and its square root carried as hi + lo; Ndtri = -√2 erfcinv(2p) with √2 a double-double | the variables of Boost.Math's erf_inv_imp and of Giles (GPU Computing Gems, 2011); fits to mpmath |
 | `Zeta` | 1/(s-1) + R(s) with R entire and fitted on [-1, 6] (exact pole); 1 + g(s)2^-s with g = (ζ(s)-1)2^s fitted on (6, 64); reflection with sin(πs/2) reduced exactly below -1 (trivial zeros exact) | DLMF 25.4.1 |
-| `HurwitzZeta` | Euler–Maclaurin summation (the arrangement of Cephes `zeta.c`) with q+k exact in double-double, powers through double-double log/exp and terms summed with a common exponent (no intermediate overflow); the number of direct terms chosen so 15 Bernoulli terms reach 2^-64 | DLMF 25.11.5; Moshier, Cephes |
+| `HurwitzZeta` | Euler–Maclaurin summation (the arrangement of Cephes `zeta.c`) with q+k exact in double-double, powers through double-double log/exp and terms summed with a common exponent (no intermediate overflow); the number of direct terms chosen so 15 Bernoulli terms reach 2^-64; for 1 < s <= 64 the float64 kernels with 25 Bernoulli terms and the shorter shift w >= 7.3 + s/2 (bound computed with mpmath, checked by a test) | DLMF 25.11.5; Moshier, Cephes |
 | `Comb`, `Perm`, `Binom`, `Factorial`, `Factorial2`, `LogFactorial` | products in double-double up to 64 factors (exact below 2^53, correctly rounded above); beyond, through `LogBeta`'s cancellation-free logarithm | — |
-| `Expit`, `LogExpit`, `Log1pExp`, `Logit`, `Xlogy`, `Xlog1py`, `LogSumExp`, `Softmax`, `LogSoftmax` | the exponential and logarithm in double-double; log1p of a tiny argument by its series | — |
-| `EllipK`, `EllipKm1`, `EllipE` | K(1-p) = A_K(p) - log(p)K(p)/π and E(1-p) = A_E(p) - log(p)(K(p)-E(p))/π (the structure of DLMF 19.12, of Cephes `ellpk`/`ellpe` and of Hastings' approximations) with A_K, A_E, K, E and (K-E)/p fitted; m < -1 by the imaginary-modulus transformation | DLMF 19.7.5, 19.12; A&S 17.3.34–36 |
-| `GammaP`, `GammaQ`, `GammaPInv`, `GammaQInv` | method selection of DiDonato & Morris as in Boost.Math's `gamma_incomplete_imp` and Cephes `igam`: power series, Legendre's continued fraction, Temme's uniform expansion for a > 20 near x = a, small-a upper-tail series; the prefactor x^a e^-x/Γ(a) formed as a double-double logarithm (a·log1pmx((x-a)/a) and Stirling, no cancellation for any a) and exponentiated once. Inverses: DiDonato–Morris starting value (Boost `find_inverse_gamma`), then a bracketed Newton iteration in log x on log of the smaller tail against its exact target | DiDonato & Morris, ACM TOMS 12(4) 1986; DLMF 8.7, 8.9, 8.11, 8.12; Boost.Math gamma.hpp, igamma_inverse.hpp (BSL-1.0); Cephes igam.h |
-| `BetaInc`, `BetaIncC`, `BetaIncInv`, `BetaIncCInv` | TOMS 708 (BRATIO with BPSER, BUP, BFRAC, BGRAT, BASYM, APSER, FPSER) ported from SciPy's cdflib.c, with every power prefix x^a y^b/B(a,b) formed as a double-double logarithm, BASYM's λ = (a+b)y - b in double-double, series run to 2^-56. Inverses: side chosen against I_{1/2}; bracketed Newton in log x or log(1-x) on the smaller tail (Boost `ibeta_inv` / Temme starting values) | DiDonato & Morris, ACM TOMS 18(3) 1992; Temme, JCAM 41 (1992); Boost.Math ibeta_inverse.hpp |
-| `J0`, `J1`, `Y0`, `Y1` | power series near 0 (log in double-double for Y); up to x = 100, Taylor series about the nearest zero of the function or of its derivative (tabulated in double-double from mpmath, higher coefficients from Bessel's equation); beyond, Hankel's expansion in modulus–phase form with the phase in double-double and an exact Payne–Hanek reduction of x mod π/2 | Harrison, ARITH 2009; DLMF 10.2, 10.8, 10.18 |
-| `Jv`, `Yv`, `Jn`, `Yn` | Temme's series below x = 1/4 (1/Γ Taylor coefficients, A&S 6.1.34); Steed's CF1/CF2 method with both fractions, the normalisation and the recurrences in double-double, at the order itself when x >= v (no recurrence through the oscillatory region, no reflection); modulus–phase expansion for large x; Jn/Yn avoid the forward recurrence that loses the zeros | Temme 1976; Barnett et al. 1974; Boost.Math bessel_jy.hpp (BSL-1.0) |
-| `I0`, `I1`, `K0`, `K1`, `I0e`, `I1e`, `K0e`, `K1e` | Boost's 53-bit minimax rationals at moderate x, double-double series for small x, DLMF 10.40 asymptotics above 20 with the exponential reduced in double-double | Boost.Math bessel_i0/i1/k0/k1.hpp; DLMF 10.40 |
-| `Iv`, `Ive`, `Kv`, `Kve`, `In`, `Kn` | scaled throughout: Temme 1975 below 0.5, Thompson–Barnett CF2 in double-double, CF1 + Wronskian for I, power series; DLMF 10.27.4 series for K at small x; reflection DLMF 10.27.2 for negative order; overflow detected from Γ(v)(2/x)^v/2 | Temme 1975; Thompson & Barnett 1986; Boost.Math bessel_ik.hpp |
+| `Expit`, `LogExpit`, `Log1pExp`, `Logit`, `Xlogy`, `Xlog1py`, `LogSumExp`, `Softmax`, `LogSoftmax` | the exponential and logarithm from the float64 kernels as hi + lo (double-double in the tails and for the vector functions), quotients corrected by their FMA residual; logit near 1/2 as log1p((2p-1)/(1-p)); log1p of a tiny argument by its series | — |
+| `EllipK`, `EllipKm1`, `EllipE` | for p = 1 - m in [2^-10, 2^11): degree-11 interpolants on 8 pieces per octave of p, in s = m - c (exact by Sterbenz), constant term in double-double, one rounding (zz_ellipOct_coeffs.go, testdata/gen/fitgo); outside, K(1-p) = A_K(p) - log(p)K(p)/π and E(1-p) = A_E(p) - log(p)(K(p)-E(p))/π (the structure of DLMF 19.12, of Cephes `ellpk`/`ellpe` and of Hastings' approximations) with A_K, A_E, K, E and (K-E)/p fitted; m < -1 by the imaginary-modulus transformation | DLMF 19.7.5, 19.12; A&S 17.3.34–36 |
+| `GammaP`, `GammaQ`, `GammaPInv`, `GammaQInv` | method selection of DiDonato & Morris as in Boost.Math's `gamma_incomplete_imp` and Cephes `igam`: power series (terms in light double-double pairs while above 2^-16 of the sum), Legendre's continued fraction (depth from the Wallis recurrences, value summed backwards as P/Q, top level in double-double), Temme's uniform expansion for a > 20 near x = a (its sum generated straight-line, testdata/gen/fitgo), small-a upper-tail series; the complement formed from the double-double tail; the prefactor x^a e^-x/Γ(a) formed as a double-double logarithm (a·log1pmx((x-a)/a) and Stirling, no cancellation for any a) and exponentiated once. Inverses: DiDonato–Morris starting value (Boost `find_inverse_gamma`), then a bracketed Halley iteration in log x on log of the smaller tail against its exact target (one float64 evaluation of the tail per step, g = log1p((T-t)/t) near the root) | DiDonato & Morris, ACM TOMS 12(4) 1986; DLMF 8.7, 8.9, 8.11, 8.12; Boost.Math gamma.hpp, igamma_inverse.hpp (BSL-1.0); Cephes igam.h |
+| `BetaInc`, `BetaIncC`, `BetaIncInv`, `BetaIncCInv` | TOMS 708 (BRATIO with BPSER, BUP, BFRAC, BGRAT, BASYM, APSER, FPSER) ported from SciPy's cdflib.c, with every power prefix x^a y^b/B(a,b) formed as a double-double logarithm, BASYM's λ = (a+b)y - b in double-double; BPSER in Euler's all-positive form (DLMF 8.17.8), shared with BUP, in light double-double pairs; BFRAC's fraction summed backwards from the depth its forward pass finds, the top level from the closed forms in double-double. Inverses: Temme's first method or the normal/power-law starting value, the side of 1/2 shown by the iteration; bracketed Halley in log x or log(1-x) on the smaller tail | DiDonato & Morris, ACM TOMS 18(3) 1992; Temme, JCAM 41 (1992); Boost.Math ibeta_inverse.hpp |
+| `J0`, `J1`, `Y0`, `Y1` | power series near 0 for Y (log in double-double); up to x = 100, one polynomial per cell centred on a zero of the function, of its derivative or a midpoint between them: f(z+h) = a0 + a1 h + h²R(h), a0, a1 and z in double-double from mpmath, R a degree-11 Chebyshev interpolant (zz_besselCells_coeffs.go, testdata/gen/fitgo), combined with error-free transformations; beyond, Hankel's expansion in modulus–phase form with the phase in double-double and an exact Payne–Hanek reduction of x mod π/2 | Harrison, ARITH 2009; DLMF 10.2, 10.8, 10.18 |
+| `Jv`, `Yv`, `Jn`, `Yn` | Temme's series below x = 1/4 (1/Γ Taylor coefficients, A&S 6.1.34); Steed's CF1/CF2 method with both fractions (evaluated backwards in light double-double pairs), the normalisation and the recurrences in double-double, at the order itself when x >= v (no recurrence through the oscillatory region, no reflection); modulus–phase expansion for large x; Jn/Yn avoid the forward recurrence that loses the zeros | Temme 1976; Barnett et al. 1974; Boost.Math bessel_jy.hpp (BSL-1.0) |
+| `I0`, `I1`, `K0`, `K1`, `I0e`, `I1e`, `K0e`, `K1e` | I0e (x in [1/8, 512)) and K0e (x in [1, 512)): degree-11 interpolants on 8 pieces per octave fitted to mpmath (testdata/gen/fitgo), I0 and K0 as e^±x from dd.ExpMant times them, rounded once; I0 below 1/8 by its series. Since v0.5.6 the same for I1e (x in [1/8, 512)) and K1e (x in [1, 512)), with I1 and K1 as e^±x times them; I1 below 1/8 by a double-double series. K0 and K1 on (0, 1]: Boost's 53-bit minimax rationals; DLMF 10.40 asymptotics above 20 (512 for order 0) with the exponential reduced in double-double | Boost.Math bessel_i0/i1/k0/k1.hpp; DLMF 10.40 |
+| `Iv`, `Ive`, `Kv`, `Kve`, `In`, `Kn` | scaled throughout: Temme 1975 below 0.5, Thompson–Barnett CF2 in double-double (to 2^-64 of the sum), CF1 + Wronskian for I, power series; DLMF 10.27.4 series for K at small x; reflection DLMF 10.27.2 for negative order; overflow detected from Γ(v)(2/x)^v/2 | Temme 1975; Thompson & Barnett 1986; Boost.Math bessel_ik.hpp |
 | `JnZeros` | McMahon (n = 0) or Olver's uniform expansion with Airy zeros (n >= 1) as the guess, Halley's iteration | DLMF 10.21.19; A&S 9.5.22, 10.4.94; Boost.Math bessel_jy_zero.hpp |
 
 Ported code keeps its attribution in a comment at the function: Cephes
@@ -172,17 +195,19 @@ listed so the table is not misread:
   log-gammas carry ~2^-56 relative errors that the cancellation exposes
   (SciPy: 45 000).
 - **Bessel**: Jn/Yn within 5.4 ulp at the zeros of orders >= 2; Jv at
-  negative non-integer order and x < |v| 7.2 ulp (13.2 ulp on loong64,
-  ppc64le and s390x, where Go fuses multiply-adds differently: results are
-  not bit-identical across architectures), Ive at negative order
+  negative non-integer order and x < |v| 7.2 ulp, Ive at negative order
   12 ulp (both from the reflection formula's cancellation); K1/K1e at small
   x tie with SciPy (1.05/1.49 ulp, Boost's rational unchanged); orders above
   1e7 only where the series or the large-x expansion applies (NaN
   elsewhere); J and Y at x = +Inf return the limit 0 where SciPy returns
   NaN.
 - **Incomplete beta**: up to 5 ulp for a, b in [1, 100) and 9 ulp for
-  a, b in [100, 1e4) near the mean (SciPy: 447 and 3487); BetaIncCInv 20 ulp
-  for a, b in [1e-3, 1) (51 on amd64; SciPy 4.5e15).
+  a, b in [100, 1e4) near the mean in this table (SciPy: 447 and 3487);
+  BetaIncCInv 20 ulp for a, b in [1e-3, 1) (51 on amd64; SciPy 4.5e15).
+  These are the fixtures' measurements before the backward BFRAC and the
+  positive BPSER series; a dense re-check (2000 points per region) gives
+  1.05 and 3.1 ulp and 1.2 ulp for those three; the table has not been
+  regenerated.
 - **Beta inverses with a or b far below 1e-3**: I_x(a, b) is flat to beyond
   2^-100 over most of (0, 1), so the float64 root depends on digits past
   double-double; results can be wrong (so are SciPy's). Budget +Inf,

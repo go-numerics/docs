@@ -92,7 +92,7 @@ params:
   libraries:
     optimize: "v0.1.0"
     integrate: "v0.1.0"
-    special: "v0.1.0"
+    special: "v0.5.7"
   versions:
     # The version selector shows "main" with the development icon.
     development: "main"
