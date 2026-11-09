@@ -65,20 +65,27 @@ How to read the columns:
   within 2× of each other, ours ahead.
 - **Finite differences:** each forward-difference gradient costs n Python
   calls in SciPy and n inlined Go calls here. At n = 100 that is 73×.
-- **`curve_fit` with 10⁴ points: SciPy is faster here, and we say so.**
+- **`curve_fit` with 10⁴ points: SciPy was faster in the table above.**
   - SciPy's model call is one vectorised NumPy expression per evaluation, so
     it pays no per-point Python overhead. Its MINPACK and LAPACK kernels are
     compiled C.
-  - Our per-point model evaluation is at parity with NumPy: 58 µs against
-    56 µs per sweep of 10⁴ exponentials, measured separately.
-  - The remaining gap is the solver itself on m×n = 10⁴×3 work arrays. The
-    MINPACK port keeps MINPACK's reference operation order and its
-    three-accumulator norm for bit parity, and it allocates its m-sized
-    workspace on every call.
-  - `CurveFitOptions.Workers` (parallel model evaluation) did not change the
-    picture: the model accounts for only about a third of the time.
-  - Closing the gap means a fit-specific LM that reuses its buffers and uses
-    blocked norms. That is not done.
+  - These two rows were measured before the MINPACK kernel work of optimize
+    PR #7, after which the 2026-10-17 run gave 1.07× (LM) and 1.27× (TRF);
+    they have not been re-timed since, because the host's load has stayed
+    above refbench's limit of 8.
+  - Both sides take the same path: same data (SHA-256), same `p0` and
+    tolerances, the same forward-difference Jacobian and the same counts
+    (21 evaluations for LM, 6 for TRF).
+  - A profile (2026-11-09) puts 65% of LM and 54% of TRF in the model
+    sweeps: `CurveFit` calls a Go closure once per point (about 3.2 ns per
+    point with `math.Exp`), where SciPy calls its NumPy expression once per
+    sweep.
+  - `Model.Vec` (v0.7.0) takes the model over arrays, called once per sweep,
+    so it can use go-simd/floats' vector `Exp` (about 1.35 ns per element).
+    With the same arithmetic per point it gives the fit of the per-point
+    model to the last bit; with the vector `Exp` (0.511 ULP) the fit agrees
+    with SciPy within the fixture tolerance and takes the same evaluations.
+    Its timing against SciPy is pending a measurement window.
 - **`brentq`:** 32×, almost entirely because the 8 callbacks are Go calls.
 
 ## SLSQP
