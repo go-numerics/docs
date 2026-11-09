@@ -6,7 +6,42 @@ description: "Timings against SciPy 1.18.1, including the curve fits where SciPy
 
 <!-- From go-numerics/optimize v0.1.0, docs/perf.md: the text is the library's, with its links pointed into this site. Change it there first. -->
 
-## Method
+## Current timings (refbench, v0.7.1, 2026-11-09)
+
+Measured with optimize's `bench/` (go-scikit/refbench): one solver call per
+row on both sides, one core, SciPy 1.18.1, 7 interleaved rounds per row. It
+was started under refbench's 1-minute load gate of 8 (5.4 at the end). Same
+data (SHA-256) and the same `nfev`/`nit` as SciPy are checked per row. The
+full table is optimize's `docs/perf-table.md`.
+
+| Benchmark | Go | SciPy | Speed-up |
+|---|---:|---:|---:|
+| Rosenbrock n=2, BFGS, analytic gradient | 3.68 µs | 1.18 ms | 320× |
+| Rosenbrock n=100, BFGS, analytic gradient | 170 ms | 46.4 ms | **0.27× (slower)** |
+| Rosenbrock n=100, BFGS, finite differences | 176 ms | 558 ms | 3.2× |
+| Rosenbrock n=2, L-BFGS-B, analytic gradient | 71.1 µs | 737 µs | 10.4× |
+| Rosenbrock n=100, L-BFGS-B, analytic gradient | 4.70 ms | 12.1 ms | 2.6× |
+| Rosenbrock n=100, CG, analytic gradient | 1.28 ms | 51.8 ms | 40× |
+| Rosenbrock n=100, Newton-CG, Hessian-vector product | 751 µs | 25.2 ms | 34× |
+| `curve_fit`, 10⁴ points, LM (model per point / `Model.Vec`) | 1.34 / 0.88 ms | 1.42 ms | 1.06× / 1.59× |
+| `curve_fit`, 10⁴ points, TRF (model per point / `Model.Vec`) | 1.91 / 1.34 ms | 2.37 ms | 1.24× / 1.74× |
+| `curve_fit`, 10⁴ points, TRF with bounds | 2.55 / 1.86 ms | 3.56 ms | 1.40× / 1.96× |
+| `brentq`, x³−2x−5 on [2, 3] | 0.13 µs | 3.9 µs | 30× |
+
+- **BFGS at n = 100 is slower.** Since optimize PR #38 the update follows
+  SciPy's bit for bit: two dense n×n products per iteration, each entry an
+  unfused left-to-right sum. SciPy runs them through BLAS `dgemm`; ours run
+  through go-simd/floats' `AxpyNoFMA` in that order (v0.7.1, 3.1× faster
+  than before). A multi-row kernel in the same order is go-simd/floats#43;
+  the defect is optimize#53.
+- **`curve_fit`:** see the profile below. With the model written over arrays
+  (`Model.Vec`, go-simd/floats' vector `Exp`), the fits are 1.6–2.0× faster
+  than SciPy.
+
+The table below is the earlier script's run of 2026-10-10, kept for the
+analysis that goes with it.
+
+## Method (2026-10-10 run)
 
 The benchmarks pair `bench_test.go` with `benchmarks/bench_scipy.py`, which
 runs the same problems from the same starting points. `benchmarks/run.sh`
@@ -57,9 +92,10 @@ How to read the columns:
   2-element arrays) plus about 10 µs per callback. Go spends nanoseconds
   on each. The gap is 100–450× and stays above 85× even after crediting
   SciPy with free callbacks.
-- **BFGS at n = 100:** our update is O(n²) where SciPy does two dense n×n
-  matrix products per iteration. That is the 5× left once SciPy's callbacks
-  are removed.
+- **BFGS at n = 100:** in this run our update was O(n²) where SciPy does two
+  dense n×n matrix products per iteration. That gave the 5× left once SciPy's
+  callbacks are removed. The bit-exact update that replaced it is slower than
+  SciPy (see the current timings above).
 - **L-BFGS-B at n = 100:** SciPy's core is compiled C with BLAS, and ours is
   Go. With callbacks counted we are 3.7× faster. Without them the cores are
   within 2× of each other, ours ahead.
@@ -85,7 +121,8 @@ How to read the columns:
     With the same arithmetic per point it gives the fit of the per-point
     model to the last bit; with the vector `Exp` (0.511 ULP) the fit agrees
     with SciPy within the fixture tolerance and takes the same evaluations.
-    Its timing against SciPy is pending a measurement window.
+    Timed on 2026-11-09: 1.59× (LM) and 1.74× (TRF) SciPy's speed, against
+    1.06× and 1.24× with the model per point.
 - **`brentq`:** 32×, almost entirely because the 8 callbacks are Go calls.
 
 ## SLSQP
