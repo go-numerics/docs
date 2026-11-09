@@ -39,7 +39,7 @@ have `…Array()` accessors.
 | `Root`, `Fsolve` | `root(method='hybr')`, `fsolve` | MINPACK hybrd/hybrj (Powell hybrid) |
 | `LeastSquares(…, TRF, …)` | `least_squares(method='trf')` | trust-region reflective, bounds, robust losses, `x_scale` |
 | `LeastSquares(…, LM, …)`, `Leastsq` | `least_squares(method='lm')`, `leastsq` (with `cov_x`) | MINPACK lmder/lmdif |
-| `CurveFit`, `CurveFitModel` | `curve_fit` (`sigma` 1-D/2-D, `absolute_sigma`, bounds, losses) | LM or TRF, covariance as SciPy |
+| `CurveFit`, `CurveFitModel` | `curve_fit` (`sigma` 1-D/2-D, `absolute_sigma`, bounds, losses) | LM or TRF, covariance as SciPy; the model per sample (`F`) or over arrays (`Vec`, one call per sweep as SciPy's `f(xdata, *p)`) |
 | `Linprog` | `linprog` | revised simplex (default) or interior point; duals |
 | `Quadprog` (**released in v0.5.0**; design: docs/design-qp.md in the optimize repo) | MATLAB `quadprog`, OSQP | the API, validation and result blocks of ½xᵀPx + qᵀx s.t. equalities, inequalities, two-sided rows and bounds, dense or sparse (go-sparse) P and A; solved today: positive definite P by the Goldfarb–Idnani dual active-set method (infeasibility certificates, dependent and redundant rows; `QPSolver` keeps the factors between solves and `UpdateQ`, `UpdateBounds`, `UpdateMatrixValues` and `WorkingSet` repair them instead of restarting, Goldfarb–Idnani Prop. 8.1–8.2: 0.03 of the cold pivots at a 5% perturbation of q, 0.30 at 50%, 0.80 at 200%, same answer); a singular P, P = 0 (LP) or sparse constraints go to the ADMM method of OSQP v1.0.0 (`QPADMM`, picked by `QPAuto`: go-sparse quasi-definite LDLᵀ with AMD, Ruiz scaling, adaptive ρ, termination with the duality gap, infeasibility and unboundedness certificates, non-convexity detection, `Polish`, and `QPSolver` updates and warm start for ADMM too). On the 38 problems of the oracle fixture OSQP can read, and on 12 generated sparse ones (random QP, equality QP, Lasso, portfolio), status, iteration count and ρ-update count equal OSQP v1.0.0's on every one. Checked against OSQP, Clarabel and quadprog on 39 problems (x to 1e-7 and 1e-8) and against the SLSQP `lsei` chain on 600 random ones. On 33 Maros–Mészáros problems (tiny and small tiers, dense or sparse fixtures, pinned commit and SHA-256) ADMM at 1e-9 with polishing reaches Clarabel's objective on 27 and ends with OSQP v1.0.0's own status on the other 6 (iteration limit on four, a dual-infeasibility certificate on two), and the active set reaches it on all 13 with a positive definite P. Against OSQP v1.0.0 (same iterations on 25 of 25 generated instances) and the `quadprog` package, one thread, medians of 5 interleaved rounds ([performance]({{< relref "performance" >}})): ADMM takes 0.5–0.65× OSQP's time on dense n ≥ 500 and 0.8–0.9× on the larger portfolios, but 1.04–1.49× in the solve phase and 2.2–4.9× in the setup on small sparse problems (go-sparse's AMD, symbolic analysis and LDLᵀ solves: open defect there); the active set takes 0.68–0.76× the `quadprog` package's time from n = 500, 1.09× at n = 200, 2.0× at n = 50. `QPAuto` picks the active set up to n + m = 2500 |
 | `Brute` | `brute` | grid then Nelder–Mead polish |
@@ -87,6 +87,18 @@ fit, err := optimize.CurveFit(func(x float64, p []float64) float64 {
 	return p[0]*math.Exp(-p[1]*x) + p[2]
 }, xdata, ydata, []float64{1, 1, 1}, nil)
 // fit.Popt, fit.PcovArray(), fit.Perr()  ->  a = 2.500 ± 0.004, b = 1.300 ± 0.005, c = 0.500 ± 0.002
+
+// The same model over arrays (Model.Vec), called once per sweep as SciPy calls
+// f(xdata, *p), so that it can use a vector exp (go-simd/floats):
+fit, err = optimize.CurveFitModel(optimize.Model{Vec: func(xs, p, out []float64) {
+	for j, v := range xs {
+		out[j] = -p[1] * v
+	}
+	floats.Exp(out, out)
+	for j, e := range out {
+		out[j] = p[0]*e + p[2]
+	}
+}}, xdata, ydata, []float64{1, 1, 1}, nil)
 
 // scipy.optimize.brentq(lambda x: x**3 - 2*x - 5, 2, 3)
 root, _ := optimize.Brentq(func(x float64) float64 { return x*x*x - 2*x - 5 }, 2, 3, nil)
@@ -189,9 +201,14 @@ Most of SciPy's time on small problems is Python overhead around the
 callbacks. Even after subtracting SciPy's time spent in its own callbacks, the
 Go algorithms remain 2–300× faster, depending on the problem.
 
-On large vectorised curve fits SciPy is faster today. Its model call is one
-NumPy expression, and its MINPACK/LAPACK kernels are compiled C. Our model
-evaluation is at parity; the gap is in the solver's workspace handling.
+The two `curve_fit` rows above predate the MINPACK kernel work of optimize
+PR #7 (1.07× and 1.27× in the 2026-10-17 table of
+[Performance]({{< relref "optimize/performance" >}})) and have not been re-timed
+since: the host's load has stayed above refbench's limit of 8. Most of that
+time was the model, not the solver: SciPy calls its NumPy expression once per
+sweep over the 10⁴ points, `CurveFit` calls a Go closure once per point.
+`Model.Vec` (v0.7.0) takes the model over arrays, so it can use a vector `exp`
+(go-simd/floats); the solver and its results are unchanged.
 
 ## Not done
 
