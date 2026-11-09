@@ -4,7 +4,7 @@ weight: 20
 description: "How the error is measured against mpmath, the headline results, the algorithms and their sources, and the known limitations."
 ---
 
-<!-- From go-numerics/special v0.5.7, docs/accuracy.md: the text is the library's, with its links pointed into this site. Change it there first. -->
+<!-- From go-numerics/special v0.5.8, docs/accuracy.md: the text is the library's, with its links pointed into this site. Change it there first. -->
 
 Accuracy is what this package sells, so it is measured, published and
 enforced by the test suite, not asserted.
@@ -127,7 +127,7 @@ Two building blocks run through everything:
 
 | function | algorithm | source |
 |---|---|---|
-| `Gamma` | Γ(1+t) = 1 + t(t-1)F(t) on [-1/2, 1] with F fitted; exact-factor recurrence (x - k is exact), the product carried as hi + lo for 1 <= x < 10 and in double-double for 0 < x < 1 and -34 < x < 0 (there and in the reflection region, a float64 evaluation with a proven error bound returns the double-double path's float64 bit for bit whenever the bound decides the rounding: [gamma-fastpath.md](https://github.com/go-numerics/special/blob/v0.5.7/docs/gamma-fastpath.md)); Stirling's series (DLMF 5.11.1) above 10, (x-1/2)log x - x + S(x) formed from the log kernel with every leading sum exact and S as hi + lo (about 2^-63 absolute), then the exp kernel; reflection with sin(πx) reduced exactly below -34; integers from a correctly rounded factorial table | DLMF 5.5, 5.11; core fitted to mpmath |
+| `Gamma` | Γ(1+t) = 1 + t(t-1)F(t) on [-1/2, 1] with F fitted; exact-factor recurrence (x - k is exact), the product carried as hi + lo for 1 <= x < 10 and in double-double for 0 < x < 1 and -34 < x < 0 (there and in the reflection region, a float64 evaluation with a proven error bound returns the double-double path's float64 bit for bit whenever the bound decides the rounding: [gamma-fastpath.md](https://github.com/go-numerics/special/blob/v0.5.8/docs/gamma-fastpath.md)); Stirling's series (DLMF 5.11.1) above 10, (x-1/2)log x - x + S(x) formed from the log kernel with every leading sum exact and S as hi + lo (about 2^-63 absolute), then the exp kernel; reflection with sin(πx) reduced exactly below -34; integers from a correctly rounded factorial table | DLMF 5.5, 5.11; core fitted to mpmath |
 | `LogGamma`, `LogGammaSign`, `GammaSign` | log1p of Γ(1+t)-1 near the zeros at 1 and 2; the same Stirling expression above 10; exact factors for -34 < x < 0; reflection below | DLMF 5.11.1, 5.5.3 |
 | `Digamma` | ψ(1+t) = (t - r)D(t) with the positive zero r in double-double and D fitted (the form of Boost.Math's `digamma_imp_1_2`); recurrence with double-double reciprocals; on [2, 10) ψ fitted directly (constant and linear terms exact); asymptotic series above 10 (DLMF 5.11.2) with log x from the log kernel; for -40 < x < 0, exact-factor recurrence, redone with a 2^-100 evaluation when the terms cancel (near the negative zeros); reflection with cot(πx) in double-double below | DLMF 5.5, 5.11; Boost.Math digamma.hpp |
 | `Polygamma` | (-1)^(n+1) n! ζ(n+1, x); for n = 1, ψ'(x) directly: the asymptotic series from 10 with its two leading terms as hi + lo, the recurrence below with every 1/(x+k)² as hi + lo | DLMF 25.11.12, 5.15.8 |

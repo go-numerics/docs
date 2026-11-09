@@ -6,7 +6,7 @@ require (
 	github.com/go-ndarray/ndarray v0.34.0
 	github.com/go-numerics/integrate v0.1.0
 	github.com/go-numerics/optimize v0.1.0
-	github.com/go-numerics/special v0.5.7
+	github.com/go-numerics/special v0.5.8
 	github.com/go-plot/plot v0.1.1
 )
 
