@@ -6,34 +6,34 @@ description: "Timings against SciPy 1.18.1, including the curve fits where SciPy
 
 <!-- From go-numerics/optimize v0.1.0, docs/perf.md: the text is the library's, with its links pointed into this site. Change it there first. -->
 
-## Current timings (refbench, v0.7.1, 2026-11-09)
+## Current timings (refbench, v0.8.0, 2026-11-10)
 
 Measured with optimize's `bench/` (go-scikit/refbench): one solver call per
-row on both sides, one core, SciPy 1.18.1, 7 interleaved rounds per row. It
-was started under refbench's 1-minute load gate of 8 (5.4 at the end). Same
+row on both sides, one core, SciPy 1.18.1, interleaved rounds per row. The
+1-minute load stayed between 4.81 and 6.91, under refbench's gate of 8. Same
 data (SHA-256) and the same `nfev`/`nit` as SciPy are checked per row. The
 full table is optimize's `docs/perf-table.md`.
 
 | Benchmark | Go | SciPy | Speed-up |
 |---|---:|---:|---:|
-| Rosenbrock n=2, BFGS, analytic gradient | 3.68 µs | 1.18 ms | 320× |
-| Rosenbrock n=100, BFGS, analytic gradient | 170 ms | 46.4 ms | **0.27× (slower)** |
-| Rosenbrock n=100, BFGS, finite differences | 176 ms | 558 ms | 3.2× |
-| Rosenbrock n=2, L-BFGS-B, analytic gradient | 71.1 µs | 737 µs | 10.4× |
-| Rosenbrock n=100, L-BFGS-B, analytic gradient | 4.70 ms | 12.1 ms | 2.6× |
-| Rosenbrock n=100, CG, analytic gradient | 1.28 ms | 51.8 ms | 40× |
-| Rosenbrock n=100, Newton-CG, Hessian-vector product | 751 µs | 25.2 ms | 34× |
-| `curve_fit`, 10⁴ points, LM (model per point / `Model.Vec`) | 1.34 / 0.88 ms | 1.42 ms | 1.06× / 1.59× |
-| `curve_fit`, 10⁴ points, TRF (model per point / `Model.Vec`) | 1.91 / 1.34 ms | 2.37 ms | 1.24× / 1.74× |
-| `curve_fit`, 10⁴ points, TRF with bounds | 2.55 / 1.86 ms | 3.56 ms | 1.40× / 1.96× |
-| `brentq`, x³−2x−5 on [2, 3] | 0.13 µs | 3.9 µs | 30× |
+| Rosenbrock n=2, BFGS, analytic gradient | 3.62 µs | 1.22 ms | 336× |
+| Rosenbrock n=100, BFGS, analytic gradient (O(n²) update, tolerance-validated) | 5.62 ms | 47.1 ms | **8.4×** |
+| Rosenbrock n=100, BFGS, finite differences | 9.57 ms | 558 ms | 58× |
+| Rosenbrock n=2, L-BFGS-B, analytic gradient | 72.6 µs | 739 µs | 10.2× |
+| Rosenbrock n=100, L-BFGS-B, analytic gradient | 4.75 ms | 12.1 ms | 2.5× |
+| Rosenbrock n=100, CG, analytic gradient | 1.26 ms | 51.2 ms | 41× |
+| Rosenbrock n=100, Newton-CG, Hessian-vector product | 748 µs | 25.6 ms | 34× |
+| `curve_fit`, 10⁴ points, LM (model per point / `Model.Vec`) | 1.33 / 0.89 ms | 1.43 / 1.44 ms | 1.07× / 1.62× |
+| `curve_fit`, 10⁴ points, TRF (model per point / `Model.Vec`) | 1.87 / 1.34 ms | 2.35 / 2.36 ms | 1.26× / 1.76× |
+| `curve_fit`, 10⁴ points, TRF with bounds | 2.53 / 1.85 ms | 3.61 / 3.63 ms | 1.43× / 1.96× |
+| `brentq`, x³−2x−5 on [2, 3] | 0.13 µs | 3.9 µs | 29× |
 
-- **BFGS at n = 100 is slower.** Since optimize PR #38 the update follows
-  SciPy's bit for bit: two dense n×n products per iteration, each entry an
-  unfused left-to-right sum. SciPy runs them through BLAS `dgemm`; ours run
-  through go-simd/floats' `AxpyNoFMA` in that order (v0.7.1, 3.1× faster
-  than before). A multi-row kernel in the same order is go-simd/floats#43;
-  the defect is optimize#53.
+- **No row is slower than SciPy.** BFGS at n = 100 was (optimize#53) while
+  its update followed SciPy's bit for bit: two dense n×n products per
+  iteration, which SciPy runs through BLAS `dgemm`. Since v0.8.0 the default
+  update is the O(n²) rank-two form (5.62 ms against 47.1 ms), tolerance-validated
+  and not bit-identical to SciPy (542 iterations against 544).
+  `Options.SciPyExactUpdate` keeps the bit-exact path, about 90 ms at n = 100.
 - **`curve_fit`:** see the profile below. With the model written over arrays
   (`Model.Vec`, go-simd/floats' vector `Exp`), the fits are 1.6–2.0× faster
   than SciPy.
@@ -94,8 +94,9 @@ How to read the columns:
   SciPy with free callbacks.
 - **BFGS at n = 100:** in this run our update was O(n²) where SciPy does two
   dense n×n matrix products per iteration. That gave the 5× left once SciPy's
-  callbacks are removed. The bit-exact update that replaced it is slower than
-  SciPy (see the current timings above).
+  callbacks are removed. A bit-exact update replaced it for a while and was
+  slower than SciPy; since v0.8.0 the O(n²) update is the default again (see
+  the current timings above).
 - **L-BFGS-B at n = 100:** SciPy's core is compiled C with BLAS, and ours is
   Go. With callbacks counted we are 3.7× faster. Without them the cores are
   within 2× of each other, ours ahead.

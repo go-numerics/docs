@@ -55,8 +55,9 @@ loong64, ppc64le and s390x; `integrate` and `special` add 386 and 32-bit arm.
 Where these libraries are slower than the reference, their own measurements
 say so, and so do these pages:
 
-- `optimize`: `curve_fit` on 10⁴ points is slower than SciPy's (0.67× with
-  LM, 0.77× with TRF); the gap is in the solver's workspace handling
+- `optimize`: in the refbench run of v0.8.0 (2026-11-10) no row is slower
+  than SciPy; `curve_fit` on 10⁴ points is 1.07× (LM) and 1.26× (TRF) faster,
+  and BFGS at n = 100 is 8.4× faster with its tolerance-validated O(n²) update
   ([performance]({{< relref "optimize/performance" >}})).
 - `special`: single-threaded, a Go loop is about 3× slower than SciPy's C for
   the gamma and error-function families and 10–15× for the Bessel functions of
