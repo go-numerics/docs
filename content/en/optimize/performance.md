@@ -10,28 +10,28 @@ description: "Timings against SciPy 1.18.1, including the curve fits where SciPy
 
 Measured with optimize's `bench/` (go-scikit/refbench): one solver call per
 row on both sides, one core, SciPy 1.18.1, interleaved rounds per row. The
-1-minute load stayed between 5.09 and 6.59, under refbench's gate of 8. Same
+1-minute load stayed between 4.81 and 6.91, under refbench's gate of 8. Same
 data (SHA-256) and the same `nfev`/`nit` as SciPy are checked per row. The
 full table is optimize's `docs/perf-table.md`.
 
 | Benchmark | Go | SciPy | Speed-up |
 |---|---:|---:|---:|
-| Rosenbrock n=2, BFGS, analytic gradient | 3.70 µs | 1.24 ms | 334× |
-| Rosenbrock n=100, BFGS, analytic gradient (O(n²) update, tolerance-validated) | 5.74 ms | 48.1 ms | **8.4×** |
-| Rosenbrock n=100, BFGS, finite differences | 9.73 ms | 572 ms | 59× |
-| Rosenbrock n=2, L-BFGS-B, analytic gradient | 74.0 µs | 745 µs | 10.1× |
-| Rosenbrock n=100, L-BFGS-B, analytic gradient | 4.81 ms | 12.4 ms | 2.6× |
-| Rosenbrock n=100, CG, analytic gradient | 1.29 ms | 53.4 ms | 41× |
-| Rosenbrock n=100, Newton-CG, Hessian-vector product | 765 µs | 26.2 ms | 34× |
-| `curve_fit`, 10⁴ points, LM (model per point / `Model.Vec`) | 1.34 / 0.90 ms | 1.41 / 1.43 ms | 1.06× / 1.59× |
-| `curve_fit`, 10⁴ points, TRF (model per point / `Model.Vec`) | 1.91 / 1.75 ms | 2.37 / 2.44 ms | 1.24× / 1.39× (tie, wide spread) |
-| `curve_fit`, 10⁴ points, TRF with bounds | 2.57 / 1.88 ms | 3.61 / 3.66 ms | 1.40× / 1.95× |
+| Rosenbrock n=2, BFGS, analytic gradient | 3.62 µs | 1.22 ms | 336× |
+| Rosenbrock n=100, BFGS, analytic gradient (O(n²) update, tolerance-validated) | 5.62 ms | 47.1 ms | **8.4×** |
+| Rosenbrock n=100, BFGS, finite differences | 9.57 ms | 558 ms | 58× |
+| Rosenbrock n=2, L-BFGS-B, analytic gradient | 72.6 µs | 739 µs | 10.2× |
+| Rosenbrock n=100, L-BFGS-B, analytic gradient | 4.75 ms | 12.1 ms | 2.5× |
+| Rosenbrock n=100, CG, analytic gradient | 1.26 ms | 51.2 ms | 41× |
+| Rosenbrock n=100, Newton-CG, Hessian-vector product | 748 µs | 25.6 ms | 34× |
+| `curve_fit`, 10⁴ points, LM (model per point / `Model.Vec`) | 1.33 / 0.89 ms | 1.43 / 1.44 ms | 1.07× / 1.62× |
+| `curve_fit`, 10⁴ points, TRF (model per point / `Model.Vec`) | 1.87 / 1.34 ms | 2.35 / 2.36 ms | 1.26× / 1.76× |
+| `curve_fit`, 10⁴ points, TRF with bounds | 2.53 / 1.85 ms | 3.61 / 3.63 ms | 1.43× / 1.96× |
 | `brentq`, x³−2x−5 on [2, 3] | 0.13 µs | 3.9 µs | 29× |
 
 - **No row is slower than SciPy.** BFGS at n = 100 was (optimize#53) while
   its update followed SciPy's bit for bit: two dense n×n products per
   iteration, which SciPy runs through BLAS `dgemm`. Since v0.8.0 the default
-  update is the O(n²) rank-two form (5.74 ms against 48.1 ms), tolerance-validated
+  update is the O(n²) rank-two form (5.62 ms against 47.1 ms), tolerance-validated
   and not bit-identical to SciPy (542 iterations against 544).
   `Options.SciPyExactUpdate` keeps the bit-exact path, about 90 ms at n = 100.
 - **`curve_fit`:** see the profile below. With the model written over arrays

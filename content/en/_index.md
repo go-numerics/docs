@@ -56,7 +56,7 @@ Where these libraries are slower than the reference, their own measurements
 say so, and so do these pages:
 
 - `optimize`: in the refbench run of v0.8.0 (2026-11-10) no row is slower
-  than SciPy; `curve_fit` on 10⁴ points is 1.06× (LM) and 1.24× (TRF) faster,
+  than SciPy; `curve_fit` on 10⁴ points is 1.07× (LM) and 1.26× (TRF) faster,
   and BFGS at n = 100 is 8.4× faster with its tolerance-validated O(n²) update
   ([performance]({{< relref "optimize/performance" >}})).
 - `special`: single-threaded, a Go loop is about 3× slower than SciPy's C for
