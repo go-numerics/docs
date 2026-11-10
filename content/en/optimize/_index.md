@@ -180,7 +180,7 @@ made the suite fail, and each was then reverted:
 
 ## Performance
 
-refbench (optimize's `bench/`), v0.7.1, 2026-11-09: one core on both sides,
+refbench (optimize's `bench/`), v0.8.0, 2026-11-10: one core on both sides,
 SciPy 1.18.1, medians of 7 interleaved rounds, started at a 1-minute load
 below 8 (Apple M4 Max). The SLSQP and trust-constr rows are
 `tools/slsqpbench`, 2026-10-30.
@@ -188,14 +188,14 @@ below 8 (Apple M4 Max). The SLSQP and trust-constr rows are
 
 | Benchmark | Go | SciPy | Speed-up |
 |---|---|---|---|
-| Rosenbrock n=2, BFGS | 3.68 µs | 1.18 ms | 320× |
-| Rosenbrock n=100, BFGS | 170 ms | 46.4 ms | **0.27× (SciPy faster, optimize#53)** |
-| Rosenbrock n=2, L-BFGS-B | 71.1 µs | 737 µs | 10.4× |
-| Rosenbrock n=100, L-BFGS-B | 4.70 ms | 12.1 ms | 2.6× |
-| `curve_fit`, 10⁴ points, LM (model per point / `Model.Vec`) | 1.34 / 0.88 ms | 1.42 ms | 1.06× / 1.59× |
-| `curve_fit`, 10⁴ points, TRF (model per point / `Model.Vec`) | 1.91 / 1.34 ms | 2.37 ms | 1.24× / 1.74× |
-| `curve_fit`, 10⁴ points, TRF with bounds (per point / `Model.Vec`) | 2.55 / 1.86 ms | 3.56 ms | 1.40× / 1.96× |
-| `brentq` | 0.13 µs | 3.9 µs | 30× |
+| Rosenbrock n=2, BFGS | 3.70 µs | 1.24 ms | 334× |
+| Rosenbrock n=100, BFGS (default O(n²) update, tolerance-validated) | 5.74 ms | 48.1 ms | 8.4× |
+| Rosenbrock n=2, L-BFGS-B | 74.0 µs | 745 µs | 10.1× |
+| Rosenbrock n=100, L-BFGS-B | 4.81 ms | 12.4 ms | 2.6× |
+| `curve_fit`, 10⁴ points, LM (model per point / `Model.Vec`) | 1.34 / 0.90 ms | 1.41 / 1.43 ms | 1.06× / 1.59× |
+| `curve_fit`, 10⁴ points, TRF (model per point / `Model.Vec`) | 1.91 / 1.75 ms | 2.37 / 2.44 ms | 1.24× / 1.39× (tie, wide spread) |
+| `curve_fit`, 10⁴ points, TRF with bounds (per point / `Model.Vec`) | 2.57 / 1.88 ms | 3.61 / 3.66 ms | 1.40× / 1.95× |
+| `brentq` | 0.13 µs | 3.9 µs | 29× |
 | SLSQP, HS71 (analytic / finite differences) | 5.6 / 6.9 µs | 114 / 648 µs | 20× / 94× |
 | SLSQP, n = 50 with 100 bounds | 3.35 ms | 4.59 ms | 1.4× |
 | trust-constr, HS71 (analytic / finite differences) | 496 / 438 µs | 32.7 / 34.1 ms | 66× / 78× |
@@ -209,9 +209,11 @@ In `curve_fit` most of the time is the model: SciPy calls its NumPy expression
 once per sweep over the 10⁴ points; `CurveFit` calls a Go closure once per
 point. `Model.Vec` (v0.7.0) takes the model over arrays, so it can use a
 vector `exp` (go-simd/floats), with the same solver and the same counts as
-SciPy. BFGS at n = 100 follows SciPy's update bit for bit with two dense n×n
-products. SciPy's go to BLAS `dgemm`, ours to `AxpyNoFMA` in the same
-summation order. That row is an open defect (optimize#53, go-simd/floats#43).
+SciPy. BFGS updates the inverse Hessian in O(n²) by default (rank-two form):
+tolerance-validated, not bit-identical to SciPy (542 iterations against 544 at
+n = 100). `Options.SciPyExactUpdate` selects SciPy's update, two dense n×n
+products summed in SciPy's order (bit for bit, O(n³), about 90 ms at n = 100).
+No row is slower than SciPy.
 
 ## Not done
 
