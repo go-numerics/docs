@@ -37,7 +37,10 @@ command -v rsync >/dev/null || die "rsync is required"
 # link (an alias), the link goes, not what it pointed to.
 [ -L "$pages/$version" ] && rm "$pages/$version"
 mkdir -p "$pages/$version"
-rsync -a --delete "$site/" "$pages/$version/"
+# --checksum: the quick check (same size and mtime) skipped a page whose edit
+# kept its size (special@v0.5.8 -> v0.8.0), because the artifact's files carry
+# no distinguishing mtime.
+rsync -a --checksum --delete "$site/" "$pages/$version/"
 
 # The versions present, newest first (0.10 before 0.9: compared as numbers),
 # then "main". latest is the newest release, else main.
