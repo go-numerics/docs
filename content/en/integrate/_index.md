@@ -4,8 +4,7 @@ weight: 20
 description: "Adaptive quadrature, fixed and sample rules, multiple integrals, and initial value problems with RK45, RK23, DOP853, Radau, BDF and stiffness switching."
 ---
 
-<!-- From go-numerics/integrate v0.1.0, README.md: the text is the library's, with its links pointed into this site and figures added. Change it there first. -->
-
+<!-- From go-numerics/integrate v0.2.2, README.md: the text is the library's, with its links pointed into this site and figures added. Change it there first. -->
 Numerical integration and ODE solvers in pure Go (`CGO_ENABLED=0`): adaptive
 quadrature (QUADPACK), fixed and sample rules, multiple integrals, and initial
 value problems with RK45, RK23, DOP853, Radau, BDF and automatic stiffness
@@ -13,8 +12,10 @@ switching — the functionality of `scipy.integrate` for the Go scientific
 stack ([go-ndarray](https://github.com/go-ndarray/ndarray), go-plot,
 go-notebook), with the same algorithms, defaults and diagnostics.
 
+🌐 **[Website](https://go-numerics.github.io)** · 📚 **[Documentation](https://go-numerics.github.io/docs/latest/integrate/)**
+
 ```
-go get github.com/go-numerics/integrate@v0.1.0
+go get github.com/go-numerics/integrate@v0.2.2
 ```
 
 ## Headline numbers
@@ -28,9 +29,14 @@ go get github.com/go-numerics/integrate@v0.1.0
   [Verification]({{< relref "integrate/verification" >}}): roundoff-limited paths that
   depend on the last bit, and three integrals where SciPy's C translation of
   QUADPACK departs from the Fortran and this port agrees with the Fortran.
-* **Faster.** 6–8× SciPy on `quad` (3× without counting Python callbacks),
-  90–190× on `solve_ivp` (RK45, DOP853, Radau, BDF; same step sequences),
-  8–16× on `odeint`/LSODA ([Performance]({{< relref "integrate/performance" >}})).
+* **Measured against SciPy** under [refbench](https://github.com/go-scikit/refbench)
+  ([docs/perf.md]({{< relref "integrate/performance" >}})): one case per public function, the same data
+  and the same number of integrand calls on both sides, `quad` also with
+  compiled (libm) callbacks so that no Python runs in SciPy's integrator. The
+  table holds allocation counts; its timings are deferred until the host is
+  idle. The October 2026 timings (6–8× on `quad`, 90–190× on `solve_ivp`,
+  taken at a host load above 8) are kept in
+  [docs/perf-legacy.md](https://github.com/go-numerics/integrate/blob/v0.2.2/docs/perf-legacy.md) and carry no verdict.
 * **Verified.** Fixtures from SciPy and mpmath, the netlib Fortran as a second
   oracle, a negative control on the coefficients, 100 % statement coverage
   with `-race`, CI lanes on amd64, arm64, riscv64, loong64, ppc64le, s390x,
@@ -107,7 +113,7 @@ does not fuse multiply-adds, the last digits differ: Quad's error estimate is
 
 {{< plotfig "quad" "The integrand log(x)/sqrt(x) on (0, 1], its area shaded, with the value Quad returned" >}}
 
-More in [example_test.go](https://github.com/go-numerics/integrate/blob/v0.1.0/example_test.go).
+More in [example_test.go](https://github.com/go-numerics/integrate/blob/v0.2.2/example_test.go).
 
 ## Documentation
 
@@ -130,4 +136,4 @@ design.md).
 
 ## License
 
-BSD 3-Clause; see [LICENSE](https://github.com/go-numerics/integrate/blob/v0.1.0/LICENSE).
+BSD 3-Clause; see [LICENSE](https://github.com/go-numerics/integrate/blob/v0.2.2/LICENSE).

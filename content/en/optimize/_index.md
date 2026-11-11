@@ -4,8 +4,7 @@ weight: 10
 description: "Minimisation, scalar and system roots, nonlinear least squares, curve fitting with covariance, and linear programming."
 ---
 
-<!-- From go-numerics/optimize v0.1.0, README.md: the text is the library's, with its links pointed into this site and figures added. Change it there first. -->
-
+<!-- From go-numerics/optimize v0.8.0, README.md: the text is the library's, with its links pointed into this site and figures added. Change it there first. -->
 Numerical optimisation and root finding in pure Go (CGO=0): minimisation,
 scalar and system roots, nonlinear least squares, curve fitting with parameter
 covariance, and linear programming.
@@ -16,7 +15,7 @@ replays SciPy 1.18.1 on standard problems, and it checks solutions, objective
 values, status codes, messages, and iteration and evaluation counts.
 
 ```sh
-go get github.com/go-numerics/optimize@v0.1.0
+go get github.com/go-numerics/optimize@v0.8.0
 ```
 
 It works with [go-ndarray](https://github.com/go-ndarray/ndarray): curve-fit
@@ -30,7 +29,7 @@ have `…Array()` accessors.
 | `Minimize(p, x0, NelderMead, opts)` | `minimize(method='Nelder-Mead')` | downhill simplex, adaptive option, bounds |
 | `Minimize(…, Powell, …)` | `minimize(method='Powell')` | conjugate directions, bounds |
 | `Minimize(…, CG, …)` | `minimize(method='CG')` | Polak–Ribière+, strong Wolfe |
-| `Minimize(…, BFGS, …)` | `minimize(method='BFGS')` | inverse-Hessian BFGS, O(n²) update |
+| `Minimize(…, BFGS, …)` | `minimize(method='BFGS')` | inverse-Hessian BFGS, O(n²) update (tolerance-validated, not bit-identical to SciPy); `Options.SciPyExactUpdate` gives SciPy's dense update bit for bit |
 | `Minimize(…, NewtonCG, …)` | `minimize(method='Newton-CG')` | truncated Newton (Hess, HessP or FD) |
 | `Minimize(…, LBFGSB, …)` | `minimize(method='L-BFGS-B')` | L-BFGS-B 3.0 with bounds |
 | `Minimize(…, SLSQP, …)` with `Options.Constraints` | `minimize(method='SLSQP', constraints=…)`, MATLAB `fmincon` `'sqp'` | Kraft's SLSQP: bounds, equality and inequality constraints as `Constraint`, `NonlinearConstraint` or `LinearConstraint`; Lagrange multipliers in `Result.Multipliers` |
@@ -41,11 +40,11 @@ have `…Array()` accessors.
 | `LeastSquares(…, LM, …)`, `Leastsq` | `least_squares(method='lm')`, `leastsq` (with `cov_x`) | MINPACK lmder/lmdif |
 | `CurveFit`, `CurveFitModel` | `curve_fit` (`sigma` 1-D/2-D, `absolute_sigma`, bounds, losses) | LM or TRF, covariance as SciPy; the model per sample (`F`) or over arrays (`Vec`, one call per sweep as SciPy's `f(xdata, *p)`) |
 | `Linprog` | `linprog` | revised simplex (default) or interior point; duals |
-| `Quadprog` (**released in v0.5.0**; design: docs/design-qp.md in the optimize repo) | MATLAB `quadprog`, OSQP | the API, validation and result blocks of ½xᵀPx + qᵀx s.t. equalities, inequalities, two-sided rows and bounds, dense or sparse (go-sparse) P and A; solved today: positive definite P by the Goldfarb–Idnani dual active-set method (infeasibility certificates, dependent and redundant rows; `QPSolver` keeps the factors between solves and `UpdateQ`, `UpdateBounds`, `UpdateMatrixValues` and `WorkingSet` repair them instead of restarting, Goldfarb–Idnani Prop. 8.1–8.2: 0.03 of the cold pivots at a 5% perturbation of q, 0.30 at 50%, 0.80 at 200%, same answer); a singular P, P = 0 (LP) or sparse constraints go to the ADMM method of OSQP v1.0.0 (`QPADMM`, picked by `QPAuto`: go-sparse quasi-definite LDLᵀ with AMD, Ruiz scaling, adaptive ρ, termination with the duality gap, infeasibility and unboundedness certificates, non-convexity detection, `Polish`, and `QPSolver` updates and warm start for ADMM too). On the 38 problems of the oracle fixture OSQP can read, and on 12 generated sparse ones (random QP, equality QP, Lasso, portfolio), status, iteration count and ρ-update count equal OSQP v1.0.0's on every one. Checked against OSQP, Clarabel and quadprog on 39 problems (x to 1e-7 and 1e-8) and against the SLSQP `lsei` chain on 600 random ones. On 33 Maros–Mészáros problems (tiny and small tiers, dense or sparse fixtures, pinned commit and SHA-256) ADMM at 1e-9 with polishing reaches Clarabel's objective on 27 and ends with OSQP v1.0.0's own status on the other 6 (iteration limit on four, a dual-infeasibility certificate on two), and the active set reaches it on all 13 with a positive definite P. Against OSQP v1.0.0 (same iterations on 25 of 25 generated instances) and the `quadprog` package, one thread, medians of 5 interleaved rounds ([performance]({{< relref "performance" >}})): ADMM takes 0.5–0.65× OSQP's time on dense n ≥ 500 and 0.8–0.9× on the larger portfolios, but 1.04–1.49× in the solve phase and 2.2–4.9× in the setup on small sparse problems (go-sparse's AMD, symbolic analysis and LDLᵀ solves: open defect there); the active set takes 0.68–0.76× the `quadprog` package's time from n = 500, 1.09× at n = 200, 2.0× at n = 50. `QPAuto` picks the active set up to n + m = 2500 |
+| `Quadprog` (**v0.5.0**, [docs/design-qp.md](https://github.com/go-numerics/optimize/blob/v0.8.0/docs/design-qp.md)) | MATLAB `quadprog`, OSQP | the API, validation and result blocks of ½xᵀPx + qᵀx s.t. equalities, inequalities, two-sided rows and bounds, with dense or sparse (go-sparse) P and A; solved today: positive definite P by the Goldfarb–Idnani dual active-set method (equalities, inequalities, two-sided rows, bounds; infeasibility certificates; dependent and redundant rows; `QPSolver` keeps the factors between solves: `UpdateQ`, `UpdateBounds`, `UpdateMatrixValues` and `WorkingSet` warm starts recover x and the multipliers from the cached factors and drop the constraints whose multiplier turned negative, Goldfarb–Idnani Prop. 8.1–8.2: 0.03 of the cold pivots at a 5% perturbation of q, 0.30 at 50%, 0.80 at 200%, same answer); a singular P, P = 0 (LP) or sparse constraints go to the ADMM method of OSQP v1.0.0 (`QPADMM`, `QPAuto` picks it; KKT by go-sparse's quasi-definite LDLᵀ with AMD ordering, Ruiz scaling, adaptive ρ, the unscaled termination test with duality gap, infeasibility and unboundedness certificates, non-convexity detection; defaults 1e-3 as OSQP's; `Polish` solves OSQP's reduced KKT system with iterative refinement and keeps the result when the residuals drop: x within 1e-6 of Clarabel on 34 of the 35 solved fixture cases at the default 1e-3 settings; for ADMM the `QPSolver` also keeps its factorisation and iterates: `UpdateQ`, `UpdateBounds` (refactor only when a row changes type) and `UpdateMatrixValues` (rescale, numeric refactor on the stored symbolic factor; an update that breaks quasi-definiteness is refused) and `WarmStart`/`X0`/`Y0`: 0.53 of the cold iterations after a 1% perturbation of q at 1e-6 tolerances): on the 38 problems OSQP can read, status, iteration count and ρ-update count equal OSQP's on all of them, and on 12 generated sparse problems (random QP, equality QP, Lasso, portfolio; sparse P and A, `tools/qporacle gen --set sparse`). On 33 Maros–Mészáros problems (tiny and small tiers, dense or sparse fixture form, `tools/qporacle mm fetch/convert`, pinned commit and SHA-256, regenerated on linux/amd64) ADMM at 1e-9 with polishing reaches Clarabel's objective on 27 and ends with OSQP v1.0.0's own status on the other 6 (QSHARE1B, QSHARE2B, QSCAGR7 and QSCTAP1 at the iteration limit, PRIMALC2 and PRIMALC5 with a dual-infeasibility certificate), and the active set reaches it on all 13 with a positive definite P. Against OSQP v1.0.0 and the `quadprog` package (`tools/qpbench`, one thread, medians of 5 interleaved rounds, [docs/perf.md]({{< relref "optimize/performance" >}})): ADMM runs OSQP's iterations exactly (25 of 25 instances) in 0.5–0.65× its time on the dense n ≥ 500 problems and 0.8–0.9× on the larger portfolios, but 1.04–1.49× in the solve phase and 2.2–4.9× in the setup on small sparse ones, where go-sparse's AMD, symbolic analysis and LDLᵀ solves are the cause (open defect, not worked around); the active set is 0.68–0.76× the `quadprog` package's time from n = 500, 1.09× at n = 200 and 2.0× at n = 50 (open defect). `QPAuto` picks the active set up to n + m = 2500, where it stops being faster than ADMM. Checked against OSQP, Clarabel and quadprog on 39 problems (x to 1e-7 and 1e-8) and against the SLSQP `lsei` chain on 600 random ones |
 | `Brute` | `brute` | grid then Nelder–Mead polish |
-| `DifferentialEvolution` (**on main, release planned**) | `differential_evolution` | the twelve strategies, immediate and deferred updating, `Workers` (identical results for every worker count with deferred updating), dithering, LHS / random / array init, `X0`, custom strategy, callback, `Constraints` (Lampinen's rule), `Integrality`, L-BFGS-B or trust-constr polish; follows SciPy's random stream exactly (`NewRNG(seed)` is `rng=seed`, `NewLegacyRNG(seed)` is `seed=seed`); no allocation per generation |
-| `Basinhopping` (**on main, release planned**) | `basinhopping` | Metropolis acceptance (`T = 0` is monotonic), adaptive step size, custom `TakeStep`, both accept-test forms including `ForceAccept`, callback, `NIterSuccess`; any `Minimize` method as the local minimiser; follows SciPy's random stream (displacements and Metropolis draws on one source) |
-| `Direct` (**on main, release planned**) | `direct` | DIRECT and DIRECT-L (`Original` selects Jones' version), a statement-by-statement port of the C code SciPy wraps (MIT licence, NOTICE in the repository); deterministic, same points, `Nfev`, `Nit` and status as SciPy; `Workers` evaluates the points of one rectangle concurrently with identical results |
+| `DifferentialEvolution` (**v0.6.0**; with `Constraints` (Lampinen's rule, trust-constr polish) and `Integrality`) | `differential_evolution` | the twelve strategies, immediate and deferred updating, `Workers` (results identical for every worker count with deferred updating), dithering, LHS / random / array init, `X0`, custom strategy, callback, L-BFGS-B polish; follows SciPy's random stream exactly (`NewRNG(seed)` is `rng=seed`, `NewLegacyRNG(seed)` is `seed=seed`); no allocation per generation; a huge `PopSize` is refused (population capped at 2^27 values) |
+| `Basinhopping` (**v0.6.0**) | `basinhopping` | Metropolis acceptance (`T = 0` is monotonic), adaptive step size, custom `TakeStep`, both accept-test forms incl. `ForceAccept` (which skips the Metropolis draw), callback, `NIterSuccess`; any `Minimize` method as the local minimiser (SciPy's default choice when `Method` is empty); follows SciPy's random stream, displacements and Metropolis draws interleaved on one source (`NewRNG` / `NewLegacyRNG`) |
+| `Direct` (**v0.6.0**; [docs/design-global.md](https://github.com/go-numerics/optimize/blob/v0.8.0/docs/design-global.md)) | `direct` | DIRECT and DIRECT-L (`Original` selects Jones' version), a statement-by-statement port of the C code SciPy wraps (MIT, [NOTICE](https://github.com/go-numerics/optimize/blob/v0.8.0/NOTICE)); deterministic, same points, `Nfev`, `Nit` and status as SciPy; `Workers` evaluates the points of one rectangle concurrently with identical results; the hidden-constraint code of the C version is ported but not reachable from SciPy's API |
 | `CheckGrad`, `ApproxFprime` | `check_grad`, `approx_fprime` | forward differences |
 
 Gradients are optional everywhere. Without one, finite differences use the
@@ -180,11 +179,11 @@ made the suite fail, and each was then reverted:
 
 ## Performance
 
-refbench (optimize's `bench/`), v0.8.0, 2026-11-10: one core on both sides,
-SciPy 1.18.1, medians of 7 interleaved rounds, started at a 1-minute load
-below 8 (Apple M4 Max). The SLSQP and trust-constr rows are
-`tools/slsqpbench`, 2026-10-30.
-[Performance]({{< relref "optimize/performance" >}}) has the method and caveats.
+refbench (`bench/`), v0.8.0, 2026-11-10: one core on both sides, SciPy
+1.18.1, medians of 7 interleaved rounds, started at a 1-minute load below 8
+(Apple M4 Max). The SLSQP and trust-constr rows are `tools/slsqpbench`,
+2026-10-30. [docs/perf.md]({{< relref "optimize/performance" >}}) and
+[docs/perf-table.md](https://github.com/go-numerics/optimize/blob/v0.8.0/docs/perf-table.md) have every row and the method.
 
 | Benchmark | Go | SciPy | Speed-up |
 |---|---|---|---|
@@ -209,11 +208,14 @@ In `curve_fit` most of the time is the model: SciPy calls its NumPy expression
 once per sweep over the 10⁴ points; `CurveFit` calls a Go closure once per
 point. `Model.Vec` (v0.7.0) takes the model over arrays, so it can use a
 vector `exp` (go-simd/floats), with the same solver and the same counts as
-SciPy. BFGS updates the inverse Hessian in O(n²) by default (rank-two form):
-tolerance-validated, not bit-identical to SciPy (542 iterations against 544 at
-n = 100). `Options.SciPyExactUpdate` selects SciPy's update, two dense n×n
-products summed in SciPy's order (bit for bit, O(n³), about 90 ms at n = 100).
-No row is slower than SciPy.
+SciPy. BFGS updates the inverse Hessian in O(n²) by default (rank-two form,
+FMA kernels): **tolerance-validated, not bit-identical to SciPy** (same
+minimiser within tolerance, iteration counts within a few percent: n = 100
+takes 542 iterations against 544). `Options.SciPyExactUpdate` selects SciPy's
+update, two dense n×n products summed in SciPy's order (bit for bit, O(n³),
+about 90 ms at n = 100 on `floats.AxpyRowsNoFMA`). The BFGS n = 100 row above
+is the default update (refbench v0.8.0: 5.62 ms against SciPy's 47.1 ms); no
+row is slower than SciPy (#53).
 
 ## Not done
 
@@ -227,10 +229,16 @@ No row is slower than SciPy.
   Jacobians.
 - **`linprog`:** HiGHS-class performance, MILP, singleton-row presolve,
   crossover and sparse matrices.
-- **Global optimisers:** shgo, dual_annealing, DE `init='sobol'` and
-  `'halton'` (`Direct`, `DifferentialEvolution` and `Basinhopping` are on main,
-  release planned).
+- **Global optimisers:** (v0.6.0, [docs/design-global.md](https://github.com/go-numerics/optimize/blob/v0.8.0/docs/design-global.md)):
+  DE `init='sobol'` and `'halton'` (no QMC engine yet), shgo, dual_annealing;
+  the L-BFGS-B port reproduces SciPy's BLAS/LAPACK summation orders only in
+  part (136 of 224 basin-hopping runs bit-identical, see design-global.md
+  section 14); the comparison of times with SciPy (`tools/globalbench`): no row
+  slower, 2.4 to 66 times faster, from 3 rounds at load below 8
+  ([docs/perf.md]({{< relref "optimize/performance" >}})). `Direct` does not reproduce SciPy's `maxfun=0`
+  or `eps=0`, and ends with status -6 instead of writing out of bounds when
+  the list of candidates (5000 levels) overflows.
 
 ## Licence
 
-BSD 3-Clause; see [LICENSE](https://github.com/go-numerics/optimize/blob/v0.1.0/LICENSE).
+BSD 3-Clause; see [LICENSE](https://github.com/go-numerics/optimize/blob/v0.8.0/LICENSE).

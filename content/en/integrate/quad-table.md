@@ -4,7 +4,7 @@ weight: 40
 description: "Every fixture integral: value, reference, true and estimated error, evaluations and diagnostics, beside SciPy's."
 ---
 
-<!-- From go-numerics/integrate v0.1.0, docs/quad-table.md: the text is the library's, with its links pointed into this site. Change it there first. -->
+<!-- From go-numerics/integrate v0.2.2, docs/quad-table.md: the text is the library's, with its links pointed into this site. Change it there first. -->
 
 | integral | value | SciPy 1.18.1 | reference | true error | estimate | neval | neval SciPy | ier | ier SciPy |
 |---|---|---|---|---|---|---|---|---|---|

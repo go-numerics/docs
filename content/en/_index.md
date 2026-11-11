@@ -26,16 +26,16 @@ beside it.
 
 | Library | Version | What it does |
 | --- | --- | --- |
-| [optimize]({{< relref "optimize" >}}) | v0.5.0 | minimisation (Nelder–Mead, Powell, CG, BFGS, Newton-CG, L-BFGS-B), constrained minimisation (SLSQP and the trust-constr interior-point method, with bounds, equality and inequality constraints), quadratic programming (`Quadprog`: Goldfarb–Idnani active set and OSQP v1.0.0's ADMM), scalar and system roots, nonlinear least squares, curve fitting with covariance, linear programming |
-| [integrate]({{< relref "integrate" >}}) | v0.1.0 | adaptive quadrature (QUADPACK), fixed and sample rules, multiple integrals, initial value problems (RK45, RK23, DOP853, Radau, BDF, stiffness switching) |
-| [special]({{< relref "special" >}}) | v0.5.8 | gamma, beta, error and normal functions, incomplete gamma and beta and their inverses, Bessel (I1, K1 from fitted octave interpolants since v0.5.6), zeta, combinatorics, elliptic integrals, complex functions; an element-wise layer over go-ndarray |
+| [optimize]({{< relref "optimize" >}}) | v0.8.0 | minimisation (Nelder–Mead, Powell, CG, BFGS, Newton-CG, L-BFGS-B), constrained minimisation (SLSQP and the trust-constr interior-point method, with bounds, equality and inequality constraints), quadratic programming (`Quadprog`: Goldfarb–Idnani active set and OSQP v1.0.0's ADMM), scalar and system roots, nonlinear least squares, curve fitting with covariance, linear programming |
+| [integrate]({{< relref "integrate" >}}) | v0.2.2 | adaptive quadrature (QUADPACK), fixed and sample rules, multiple integrals, initial value problems (RK45, RK23, DOP853, Radau, BDF, stiffness switching) |
+| [special]({{< relref "special" >}}) | v0.8.0 | gamma, beta, error and normal functions, incomplete gamma and beta and their inverses, Bessel (I1, K1 from fitted octave interpolants since v0.5.6), zeta, combinatorics, elliptic integrals, complex functions; an element-wise layer over go-ndarray |
 
 ## Install
 
 ```sh
-go get github.com/go-numerics/optimize@v0.5.0
-go get github.com/go-numerics/integrate@v0.1.0
-go get github.com/go-numerics/special@v0.5.8
+go get github.com/go-numerics/optimize@v0.8.0
+go get github.com/go-numerics/integrate@v0.2.2
+go get github.com/go-numerics/special@v0.8.0
 ```
 
 Each module needs Go 1.27.2 or later and is pure Go (`CGO_ENABLED=0`). Each

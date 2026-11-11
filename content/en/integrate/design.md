@@ -4,7 +4,7 @@ weight: 20
 description: "Algorithms and sources: QUADPACK, the Runge–Kutta methods, Radau, BDF and the stiffness switch, and where the code departs from them."
 ---
 
-<!-- From go-numerics/integrate v0.1.0, docs/design.md: the text is the library's, with its links pointed into this site. Change it there first. -->
+<!-- From go-numerics/integrate v0.2.2, docs/design.md: the text is the library's, with its links pointed into this site. Change it there first. -->
 
 `integrate` provides what `scipy.integrate` provides for quadrature and
 initial value problems, in pure Go, with the same algorithms, defaults and

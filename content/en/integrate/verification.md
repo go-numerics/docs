@@ -4,7 +4,7 @@ weight: 30
 description: "How the results were checked against SciPy, mpmath and the netlib Fortran."
 ---
 
-<!-- From go-numerics/integrate v0.1.0, docs/verification.md: the text is the library's, with its links pointed into this site. Change it there first. -->
+<!-- From go-numerics/integrate v0.2.2, docs/verification.md: the text is the library's, with its links pointed into this site. Change it there first. -->
 
 Everything here is reproduced by `go test ./...`; the tables are regenerated
 with `INTEGRATE_REPORT=1 go test -run VerificationReport .`.

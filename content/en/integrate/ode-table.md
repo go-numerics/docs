@@ -4,7 +4,7 @@ weight: 50
 description: "Every solve_ivp fixture run: scaled error, evaluations, Jacobians and steps, beside SciPy's."
 ---
 
-<!-- From go-numerics/integrate v0.1.0, docs/ode-table.md: the text is the library's, with its links pointed into this site. Change it there first. -->
+<!-- From go-numerics/integrate v0.2.2, docs/ode-table.md: the text is the library's, with its links pointed into this site. Change it there first. -->
 
 | problem | method | rtol | jac | scaled error (ours) | scaled error (SciPy 1.18.1) | nfev (+FD Jacobian) | nfev SciPy | njev | njev SciPy | steps | steps SciPy |
 |---|---|---|---|---|---|---|---|---|---|---|---|

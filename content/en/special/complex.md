@@ -4,7 +4,7 @@ weight: 20
 description: "special/cmplx: a drop-in superset of math/cmplx with C11 Annex G special values, each part measured in ulps against mpmath."
 ---
 
-<!-- From go-numerics/special v0.4.0, README.md "Complex functions": change it there first. -->
+<!-- From go-numerics/special v0.8.0, README.md "Complex functions": change it there first. -->
 
 `github.com/go-numerics/special/cmplx` (new in v0.4.0) is a drop-in
 superset of the standard library's `math/cmplx`. Changing the import path
@@ -23,7 +23,7 @@ special values.
   Payne–Hanek reduction, and `atan2` is table-driven double-double.
 
 ```
-go get github.com/go-numerics/special@v0.4.0
+go get github.com/go-numerics/special@v0.8.0
 ```
 
 ```go

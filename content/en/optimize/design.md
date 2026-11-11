@@ -4,7 +4,7 @@ weight: 20
 description: "Algorithms, sources, and how closely each one follows SciPy 1.18.1's path."
 ---
 
-<!-- From go-numerics/optimize v0.1.0, docs/design.md: the text is the library's, with its links pointed into this site. Change it there first. -->
+<!-- From go-numerics/optimize v0.8.0, docs/design.md: the text is the library's, with its links pointed into this site. Change it there first. -->
 
 This package is an independent Go implementation of the parts of
 `scipy.optimize` that scientific notebooks use most. A census of 339 notebooks
@@ -57,7 +57,7 @@ stops:
 | `NelderMead` | Nelder & Mead (1965) simplex; adaptive coefficients of Gao & Han (2012); bounds by reflection of the initial simplex and clipping | SciPy `_minimize_neldermead` (stable ordering, `maxfev` unwinding exactly where SciPy raises) |
 | `Powell` | Powell (1964) conjugate directions with the Press et al. replacement test; Brent line searches, bounded line searches restricted to the box, `arctan` mapping for half-infinite ranges | SciPy `_minimize_powell`, `_linesearch_powell`, `_line_for_search` |
 | `CG` | Polak–Ribière with Powell's β ≥ 0 (PR+), strong-Wolfe search plus the sufficient-descent condition on the next direction (Nocedal & Wright §5.2) | SciPy `_minimize_cg` |
-| `BFGS` | Inverse-Hessian BFGS (Nocedal & Wright Alg. 6.1), strong-Wolfe line search | SciPy `_minimize_bfgs`; **deviation:** the update is applied in O(n²) as a rank-two correction instead of two dense n×n products (O(n³)). It is the same formula in exact arithmetic but rounds differently. It is the main reason BFGS is 10–20× faster at n=100. |
+| `BFGS` | Inverse-Hessian BFGS (Nocedal & Wright Alg. 6.1), strong-Wolfe line search | SciPy `_minimize_bfgs`; **deviation (default):** the update is applied in O(n²) as a rank-two correction instead of two dense n×n products (O(n³)): the same formula in exact arithmetic that rounds differently, validated by tolerance, not bit-identical to SciPy. `Options.SciPyExactUpdate` applies SciPy's two products bit for bit. |
 | `NewtonCG` | Truncated Newton (Nocedal & Wright Alg. 7.1): CG on the Newton system with forcing term min(0.5, √‖g‖₁), stopped on negative curvature | SciPy `_minimize_newtoncg`, including its three Hessian sources and the order of the two gradient calls in its finite-difference Hessian-vector product, which decides how often the cache hits |
 | `LBFGSB` | L-BFGS-B 3.0 (Byrd, Lu, Nocedal & Zhu 1995; Zhu et al. 1997; Morales & Nocedal 2011): generalized Cauchy point with a breakpoint heap, compact limited-memory matrices, subspace minimisation with the 3.0 projection and backtrack, Moré–Thuente line search | SciPy 1.18.1's C translation `lbfgsb.c`, one subroutine per method (`cauchy`, `hpsolb`, `bmv`, `formt`, `formk`, `cmprlb`, `subsm`, `lnsrlb`, `matupd`, LINPACK `dpofa`/`dtrsl`) |
 
@@ -111,26 +111,28 @@ opened for the port, all BSD-3-Clause or BSD-style:
   and `LinearConstraint`;
 - Reference-LAPACK **v3.12.1** `dlarfg`, `dlarfgp`, `dlartgp`, `dlapy2`,
   `dgerq2`, `dormr2` (and the reference BLAS loop orders) for the dense
-  kernels.
+  kernels in `lapack.go`.
 
 Kraft's 1988 report itself was not available to us; the method is cited
 through SciPy's code, which references its §2.2.3.
 
 **Deviations.** `dgelsy` (least squares with only equality constraints) is
 replaced by Householder QR with column pivoting and the rank test
-|R(k,k)| > √ε·|R(0,0)|; SLSQP only reads the rank. Three LAPACK branches that
-cannot be reached here are omitted and documented in the code. Where SciPy's
-NNLS would index out of range on an empty passive set, the loop stops. The
-go-simd/floats kernels are not used: they reduce in a lane-blocked FMA order
-that would change the path both against SciPy and between architectures, on
-vectors of a few dozen entries.
+|R(k,k)| > √ε·|R(0,0)|; SLSQP only reads the rank, and on these
+problems the matrix is a factor of the positive-definite BFGS matrix. Three
+LAPACK branches that cannot be reached here are omitted and documented in
+the code (the subnormal-τ flush of `dlarfgp`, the sign flip of `dlartgp`,
+`ldl_update` with σ = 0). Where SciPy's NNLS would index out of range on an
+empty passive set, the loop stops. The go-simd/floats kernels are not used:
+they reduce in a lane-blocked FMA order that would change the path both
+against SciPy and between architectures, on vectors of a few dozen entries.
 
 **Constraint types.** `Options.Constraints` takes `Constraint` (SciPy's
 dictionary form), `NonlinearConstraint` (lb ≤ f(x) ≤ ub) and
 `LinearConstraint` (lb ≤ A·x ≤ ub). All three reduce to equality and
-inequality blocks, the form later constrained methods will share. Unlike
-SciPy, which warns, other methods return `ErrMethod` when constraints are
-given.
+inequality blocks (`stdConstraint`), the form later constrained methods will
+share. Unlike SciPy, which warns, other methods return `ErrMethod` when
+constraints are given.
 
 **Fidelity.** Fixtures come from SciPy's **x86_64** wheel run in a
 `linux/amd64` container (`tools/slsqporacle --platform linux/amd64`), because
@@ -139,14 +141,17 @@ SciPy's macOS arm64 wheel contracts `a*b + c` into fused multiply-adds. On
 without derivatives, plus option and new-style-constraint variants): every
 status agrees, **88 take SciPy's exact path** (identical nit, nfev, njev,
 with x to 1e-7 and f to 1e-9 relative), and 96 reach the same objective to
-1e-6. On each of the 12 others SciPy's own arm64 and x86_64 wheels also
-disagree with each other, so the path is decided by last-bit rounding (HS13
-is degenerate; HS23, HS29, HS38 run near-singular updates; Infeasible,
-SingularEq, SingularEq3 hinge on a pivot that is zero in exact arithmetic).
-Go results are bit-identical on amd64 and arm64. `slsqporacle diff a.json
-b.json` lists the cases on which two fixtures disagree, which is how the
-wheels were compared; the harness and `tools/slsqpbench` have their own tests,
-run in CI, which need neither Python, Docker nor a quiet machine (v0.3.1).
+1e-6. The 12 others are among the runs listed in `slsqp_fixture_test.go`
+(which asserts the path on all remaining ones); on each of them
+SciPy's own arm64 and x86_64 wheels also disagree with each other, so the
+path is decided by last-bit rounding (HS13 is degenerate; HS23, HS29, HS38
+run near-singular updates; Infeasible, SingularEq, SingularEq3 hinge on a
+pivot that is zero in exact arithmetic). Go results are bit-identical on
+amd64 and arm64 (checked by running the amd64 test binary in a container).
+`slsqporacle diff a.json b.json` lists the cases on which two fixtures
+disagree (exit status 1 if any), which is how the wheels were compared; the
+harness and `tools/slsqpbench` have their own tests, run in CI, which need
+neither Python, Docker nor a quiet machine.
 
 ## trust-constr (interior point)
 
@@ -389,6 +394,21 @@ instead, with documented limits.
   inconsistent with the returned point.
 - **Not done:** singleton-row presolve, crossover, scaling, warm start,
   sparse matrices.
+
+## Quadprog (planned)
+
+Quadratic programming is designed but not implemented yet: a Goldfarb–Idnani
+dual active-set solver, then an OSQP-style ADMM solver for large and sparse
+problems. The design, its sources and the task list are in
+[`design-qp.md`](https://github.com/go-numerics/optimize/blob/v0.8.0/docs/design-qp.md).
+
+## Global optimisers (v0.6.0)
+
+Differential evolution, basin hopping and DIRECT/DIRECT-L are implemented:
+SciPy's exact random stream (PCG64 and the legacy
+MT19937, through go-ndarray's `random`), deterministic parallel evaluation,
+the C DIRECT code ported statement by statement. The design, its sources, the
+validation plan and the task list are in [`design-global.md`](https://github.com/go-numerics/optimize/blob/v0.8.0/docs/design-global.md).
 
 ## Brute, CheckGrad, ApproxFprime
 

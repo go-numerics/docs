@@ -4,7 +4,7 @@ weight: 30
 description: "Gamma, beta, error and normal functions, incomplete gamma and beta and their inverses, Bessel, zeta and elliptic integrals, measured in ULPs against mpmath."
 ---
 
-<!-- From go-numerics/special v0.5.8, README.md: the text is the library's, with its links pointed into this site and figures added. Change it there first. -->
+<!-- From go-numerics/special v0.8.0, README.md: the text is the library's, with its links pointed into this site and figures added. Change it there first. -->
 Special mathematical functions in pure Go (no cgo, no assembly): the gamma
 family, error functions, incomplete gamma and beta functions and their
 inverses, Bessel functions, zeta functions, combinatorics, logistic helpers
@@ -209,8 +209,8 @@ are open issues:
   (2 + |y log x|) ulp bound.
 
 Every region is listed in
-[docs/accuracy-complex.md](https://github.com/go-numerics/special/blob/v0.5.8/docs/accuracy-complex.md), and the design is
-[docs/design-complex.md](https://github.com/go-numerics/special/blob/v0.5.8/docs/design-complex.md). Timing against NumPy's
+[docs/accuracy-complex.md](https://github.com/go-numerics/special/blob/v0.8.0/docs/accuracy-complex.md), and the design is
+[docs/design-complex.md](https://github.com/go-numerics/special/blob/v0.8.0/docs/design-complex.md). Timing against NumPy's
 complex ufuncs has not been measured yet.
 
 ## Double-double arithmetic

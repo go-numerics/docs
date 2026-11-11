@@ -4,13 +4,13 @@ weight: 40
 description: "Single-threaded and parallel timings against SciPy 1.18.1's ufuncs, including where the Go loop is slower."
 ---
 
-<!-- From go-numerics/special v0.5.8, docs/perf.md: the text is the library's, with its links pointed into this site. Change it there first. -->
+<!-- From go-numerics/special v0.8.0, docs/perf.md: the text is the library's, with its links pointed into this site. Change it there first. -->
 
 The comparison is with SciPy 1.18.1's vectorised ufuncs (C/C++, one thread),
 measured by [refbench](https://github.com/go-scikit/refbench) v0.1.2 from
 `bench/perf_test.go`. The generated table is [perf-table.md]({{< relref "special/performance-table" >}})
 (data: `perf.json`); the public functions without a row are in
-[perf-exempt.md](https://github.com/go-numerics/special/blob/v0.5.8/docs/perf-exempt.md).
+[perf-exempt.md](https://github.com/go-numerics/special/blob/v0.8.0/docs/perf-exempt.md).
 
 ## Method
 
@@ -102,7 +102,7 @@ allocate 7 to 20 objects per array call.
 - `Gamma` on 0 < x < 1 and x < 0 runs a float64 evaluation with an a-priori
   error bound and falls back to the double-double path only when the bound
   cannot decide the rounding, so the results are bit-identical (derivation and
-  fallback rates: [gamma-fastpath.md](https://github.com/go-numerics/special/blob/v0.5.8/docs/gamma-fastpath.md)); `sinPi`/`cosPi`
+  fallback rates: [gamma-fastpath.md](https://github.com/go-numerics/special/blob/v0.8.0/docs/gamma-fastpath.md)); `sinPi`/`cosPi`
   reduce their argument with an exact `a - 2⌊a/2⌋` instead of `math.Mod`.
 - v0.5.6: `I1`, `I1e`, `K1`, `K1e` from fitted octave interpolants (results
   change, more accurate); `Comb` by an exact integer recurrence, `Factorial2`
