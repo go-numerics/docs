@@ -21,7 +21,7 @@ tails, zeros, poles, huge and tiny arguments, subnormals, NaN and ±Inf — and
 SciPy is measured on exactly the same points.
 
 ```
-go get github.com/go-numerics/special@v0.5.8
+go get github.com/go-numerics/special@v0.8.0
 ```
 
 ```go
