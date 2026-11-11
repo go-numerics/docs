@@ -35,6 +35,22 @@ v0.8.0, both taken below a 1-minute load of 8), published under `0.8/`.
 To document a new release, set its entry in `params.libraries`, require the
 same version in `figures/go.mod`, redraw the figures, and update the pages.
 
+`tools/regen` regenerates the pages derived from a library's files at the new
+tag: front matter kept, the `From go-numerics/<lib> vX` comment moved to the
+tag, links pointed into the site (`relref`) or at the tagged file on GitHub.
+From a checkout of the library at that tag:
+
+```sh
+cd tools/regen
+# every docs/*.md page of the library, rewritten in place
+go run . <docs repo> <library> <tag> <library checkout>
+# the section's _index.md, from the library's README.md, printed on stdout
+go run . readme <docs repo> <library> <tag> <library checkout>/README.md > ../../content/en/<library>/_index.md
+```
+
+Then continue with the figures and the performance pages. `go test ./...`
+there runs in the `regen` CI job.
+
 ## Pages
 
 A library's pages are its own documentation: its `README.md` becomes the
@@ -79,6 +95,7 @@ any Apple-silicon Mac, or `GOARCH=arm64` under emulation.
 | `assets/css/custom.css` | the brand violet as Hextra's primary colour, the table headers, a white card under figures |
 | `themes/hextra` | submodule: [tannevaled/hextra](https://github.com/tannevaled/hextra), pinned to a release tag |
 | `branding` | submodule: [go-numerics/brand](https://github.com/go-numerics/brand) (the mark, its PNGs and ICO) |
+| `tools/regen/` | Go program that regenerates a library's pages from its release tag |
 | `scripts/publish-version.sh` | puts one build into a `gh-pages` checkout and rewrites `versions.json`, `latest` and the root redirect |
 
 ## Working locally
@@ -102,6 +119,7 @@ no Node. Go 1.27.2 or later only to redraw the figures.
 | `build` | pull requests, `main` | builds with `--baseURL …/docs/<version>/`, checks internal links and anchors (lychee, offline), uploads the site |
 | `links` | pull requests, `main` | fetches every external URL the pages name |
 | `figures` | pull requests, `main` | draws every figure again and compares it with the committed image |
+| `regen` | pull requests, `main` | `gofmt` and `go test` of `tools/regen` |
 | `deploy` | `main` | `scripts/publish-version.sh` into `gh-pages` (started empty on the first deploy), then a commit and a push |
 
 GitHub Pages serves the `gh-pages` branch.
