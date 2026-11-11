@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/spf13/cobra"
 )
 
 var commentRE = regexp.MustCompile(`<!-- From go-numerics/(\w+) (v[0-9.]+), (docs/[^:\s]+):[^>]*-->`)
@@ -76,69 +78,107 @@ var verRE = regexp.MustCompile(`(From go-numerics/\w+ )v[0-9.]+(, README\.md)`)
 
 var commentRE2 = regexp.MustCompile(`<!-- From go-numerics/\w+ v[0-9.]+, README.md[^>]*-->`)
 
-func main() {
-	if len(os.Args) == 6 && os.Args[1] == "readme" {
-		// docsregen readme <docs repo> <library> <tag> <README file>
-		docs, lib, tag := os.Args[2], os.Args[3], os.Args[4]
-		files, _ := filepath.Glob(filepath.Join(docs, "content/en", lib, "*.md"))
-		pages := map[string]string{}
-		for _, f := range files {
-			b, _ := os.ReadFile(f)
-			if m := commentRE.FindStringSubmatch(string(b)); m != nil {
-				pages[m[3]] = strings.TrimSuffix(filepath.Base(f), ".md")
-			}
-		}
-		page, err := os.ReadFile(filepath.Join(docs, "content/en", lib, "_index.md"))
-		rd, err2 := os.ReadFile(os.Args[5])
-		if err != nil || err2 != nil {
-			fmt.Fprintln(os.Stderr, err, err2)
-			os.Exit(1)
-		}
-		fmt.Print(Readme(string(page), lib, tag, string(rd), pages))
-		return
-	}
-	if len(os.Args) != 5 {
-		fmt.Fprintln(os.Stderr, "usage: docsregen <docs repo> <library> <tag> <library checkout>")
-		os.Exit(2)
-	}
-	docs, lib, tag, src := os.Args[1], os.Args[2], os.Args[3], os.Args[4]
-	files, _ := filepath.Glob(filepath.Join(docs, "content/en", lib, "*.md"))
-	pages := map[string]string{}
-	texts := map[string]string{}
+// osExit is replaced by tests.
+var osExit = os.Exit
+
+// pageStems maps each library docs/ source named by a page's comment to the
+// page's stem, and returns the pages' files and texts.
+func pageStems(docs, lib string) (files []string, texts, pages map[string]string, err error) {
+	files, _ = filepath.Glob(filepath.Join(docs, "content/en", lib, "*.md"))
+	pages = map[string]string{}
+	texts = map[string]string{}
 	for _, f := range files {
 		b, err := os.ReadFile(f)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
+			return nil, nil, nil, err
 		}
 		texts[f] = string(b)
 		if m := commentRE.FindStringSubmatch(string(b)); m != nil {
 			pages[m[3]] = strings.TrimSuffix(filepath.Base(f), ".md")
 		}
 	}
-	for _, f := range files {
-		m := commentRE.FindStringSubmatch(texts[f])
-		if m == nil {
-			fmt.Println("skipped (no docs/ source):", f)
-			continue
+	return files, texts, pages, nil
+}
+
+// RootCmd builds the command: docsregen <docs repo> <library> <tag> <library
+// checkout>, or docsregen readme <docs repo> <library> <tag> <README file>.
+func RootCmd() *cobra.Command {
+	root := &cobra.Command{
+		Use:           "docsregen <docs repo> <library> <tag> <library checkout>",
+		Short:         "Regenerate the library-derived pages of the go-numerics docs site",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Args:          cobra.ExactArgs(4),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			docs, lib, tag, src := args[0], args[1], args[2], args[3]
+			out := cmd.OutOrStdout()
+			files, texts, pages, err := pageStems(docs, lib)
+			if err != nil {
+				return err
+			}
+			for _, f := range files {
+				m := commentRE.FindStringSubmatch(texts[f])
+				if m == nil {
+					fmt.Fprintln(out, "skipped (no docs/ source):", f)
+					continue
+				}
+				b, err := os.ReadFile(filepath.Join(src, m[3]))
+				if err != nil {
+					return err
+				}
+				body := string(b)
+				if i := strings.Index(body, "\n"); strings.HasPrefix(body, "# ") && i > 0 {
+					body = strings.TrimPrefix(body[i+1:], "\n")
+				}
+				text := texts[f]
+				end := strings.Index(text, m[0])
+				comment := strings.Replace(m[0], " "+m[2]+",", " "+tag+",", 1)
+				res := text[:end] + comment + "\n\n" + Rewrite(body, lib, tag, pages)
+				if err := os.WriteFile(f, []byte(res), 0o644); err != nil {
+					return err
+				}
+				fmt.Fprintln(out, "wrote", f)
+			}
+			return nil
+		},
+	}
+	readme := &cobra.Command{
+		Use:          "readme <docs repo> <library> <tag> <README file>",
+		Short:        "Print the section's _index page rendered from a README",
+		SilenceUsage: true,
+		Args:         cobra.ExactArgs(4),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			docs, lib, tag := args[0], args[1], args[2]
+			_, _, pages, err := pageStems(docs, lib)
+			if err != nil {
+				return err
+			}
+			page, err := os.ReadFile(filepath.Join(docs, "content/en", lib, "_index.md"))
+			if err != nil {
+				return err
+			}
+			rd, err := os.ReadFile(args[3])
+			if err != nil {
+				return err
+			}
+			fmt.Fprint(cmd.OutOrStdout(), Readme(string(page), lib, tag, string(rd), pages))
+			return nil
+		},
+	}
+	root.AddCommand(readme)
+	return root
+}
+
+func main() {
+	cmd := RootCmd()
+	cmd.SetErr(os.Stderr)
+	if err := cmd.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		if strings.Contains(err.Error(), "arg") || strings.Contains(err.Error(), "command") {
+			fmt.Fprintln(os.Stderr, cmd.UsageString())
+			osExit(2)
+			return
 		}
-		b, err := os.ReadFile(filepath.Join(src, m[3]))
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		body := string(b)
-		if i := strings.Index(body, "\n"); strings.HasPrefix(body, "# ") && i > 0 {
-			body = strings.TrimPrefix(body[i+1:], "\n")
-		}
-		text := texts[f]
-		end := strings.Index(text, m[0])
-		comment := strings.Replace(m[0], " "+m[2]+",", " "+tag+",", 1)
-		out := text[:end] + comment + "\n\n" + Rewrite(body, lib, tag, pages)
-		if err := os.WriteFile(f, []byte(out), 0o644); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		fmt.Println("wrote", f)
+		osExit(1)
 	}
 }
