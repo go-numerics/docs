@@ -6,8 +6,8 @@ github.com/go-ndarray/ndarray v0.34.0 h1:UYGXAB4DUB0tk3c2+B8I1+hOgzzjvVNUrph7Pfk
 github.com/go-ndarray/ndarray v0.34.0/go.mod h1:OVccdl+ajDh+zTtEvkE/Xai2LTzdYigdPG/5XtzWFqk=
 github.com/go-numerics/integrate v0.2.2 h1:Zgd9COD8FilNkUZp4nYFXAMUYm+cccczpiKPRtoRYYo=
 github.com/go-numerics/integrate v0.2.2/go.mod h1:Cx3t2BaVdFD8zmS45y4c4xEXOeYs2uwj7By6c9dQ6SM=
-github.com/go-numerics/optimize v0.8.0 h1:8173yRobEQH8VT/yiyRdPx8jax3SSb+k/2YInDTpM+A=
-github.com/go-numerics/optimize v0.8.0/go.mod h1:MmNSTxAx7e1oo4XGZAN+QiTYsD217uODq/R+bMfXiw0=
+github.com/go-numerics/optimize v0.9.0 h1:Dn4pcEBzvG4RlhGF7syVKqv2YaIljQdImJJxZtIFUPg=
+github.com/go-numerics/optimize v0.9.0/go.mod h1:ZcXzpl9kM1GY+Ud+dgXHW1Gp1huyBnrsi0ZaIECCg4M=
 github.com/go-numerics/special v0.8.0 h1:mRTJPaQrwkoXqiFTSjcL+8mNEfsGBbmCw2vz2TdFHmg=
 github.com/go-numerics/special v0.8.0/go.mod h1:A4gX/e2znfRvkjSDMmMaFomZVeD9rDMeMlAILQLtoIA=
 github.com/go-opentype/fonts v0.12.0 h1:gjYYkbDZBK3JHpraakgGNnXdkGq8oADerhDYjC22ILQ=
@@ -16,8 +16,8 @@ github.com/go-opentype/opentype v0.15.0 h1:ioE3eCbNZavlk/w073J3uX5FKjqhgOHQw+wZZ
 github.com/go-opentype/opentype v0.15.0/go.mod h1:ZB31jTJl2mhPESXYMuUW+p36UrOabw/2+6mtyh/vNnI=
 github.com/go-plot/plot v0.1.1 h1:POie6aBWh06Ruo2mc6rV1kaUNxsPhSBIhDL36+yR/6U=
 github.com/go-plot/plot v0.1.1/go.mod h1:XySYRAdJQbV9yNAkRNXcly3dVMj8iWTYmYWi5jfYbv0=
-github.com/go-simd/floats v0.13.0 h1:3XaHHBt/kC/faM7cTDr8QU/ZRTTfgTDyzS4ZJmyLcvU=
-github.com/go-simd/floats v0.13.0/go.mod h1:Aq5a6oY5pUqm9Hpi+iV2nrNmaaUb0rwHvUHIerXWSvA=
+github.com/go-simd/floats v0.17.0 h1:Dv0ZmZ3k0IavvHwQgstpUz+TeIf/gGJ9HEGQ/UART8Q=
+github.com/go-simd/floats v0.17.0/go.mod h1:Aq5a6oY5pUqm9Hpi+iV2nrNmaaUb0rwHvUHIerXWSvA=
 github.com/go-sparse/sparse v0.3.0 h1:y++tCTIdQsGwUavxCHKfDt4AX8T2zUnwyDQ3Vix3uP8=
 github.com/go-sparse/sparse v0.3.0/go.mod h1:Ds5+sYeB78IUtIe83Xi3km+wMbD7sW2u1q64eLS8bhI=
 github.com/go-tex/math v0.50.0 h1:YHJ3LYzS45zBoPKGBkZW4+LUQkOeHP30YWLsfXGZCpo=

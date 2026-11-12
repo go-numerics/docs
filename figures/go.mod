@@ -5,7 +5,7 @@ go 1.27.3
 require (
 	github.com/go-ndarray/ndarray v0.34.0
 	github.com/go-numerics/integrate v0.2.2
-	github.com/go-numerics/optimize v0.8.0
+	github.com/go-numerics/optimize v0.9.0
 	github.com/go-numerics/special v0.8.0
 	github.com/go-plot/plot v0.1.1
 )
@@ -15,7 +15,7 @@ require (
 	github.com/go-gfx/gfx v0.35.0 // indirect
 	github.com/go-opentype/fonts v0.12.0 // indirect
 	github.com/go-opentype/opentype v0.15.0 // indirect
-	github.com/go-simd/floats v0.13.0 // indirect
+	github.com/go-simd/floats v0.17.0 // indirect
 	github.com/go-sparse/sparse v0.3.0 // indirect
 	github.com/go-tex/math v0.50.0 // indirect
 	github.com/go-widgets/painter v0.15.0 // indirect

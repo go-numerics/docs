@@ -4,7 +4,7 @@ weight: 20
 description: "Algorithms, sources, and how closely each one follows SciPy 1.18.1's path."
 ---
 
-<!-- From go-numerics/optimize v0.8.0, docs/design.md: the text is the library's, with its links pointed into this site. Change it there first. -->
+<!-- From go-numerics/optimize v0.9.0, docs/design.md: the text is the library's, with its links pointed into this site. Change it there first. -->
 
 This package is an independent Go implementation of the parts of
 `scipy.optimize` that scientific notebooks use most. A census of 339 notebooks
@@ -294,9 +294,39 @@ Powell's hybrid method, ported from SciPy 1.18.1's C translation of MINPACK
 - **Kernels:** `dogleg`, `qrfac` with column pivoting, `qform`, `r1updt`,
   `r1mpyq`, and the forward-difference `fdjac1`.
 - **Layout:** storage is column-major, as in MINPACK, so every sum keeps the
-  reference order.
-- **Norm:** MINPACK's three-accumulator `enorm` is kept, because a different
-  norm alone breaks bit parity.
+  reference order under `SciPyExact` and below 32 rows; from 32 the default
+  sums run on go-simd kernels over the same contiguous columns
+  (`minpack_fast.go`).
+- **Norm:** from 32 rows or equations the default norm is `fastEnorm`
+  (`sqrt(floats.Dot(x, x))`, the scaled sum outside 1e-145 .. 1e150), with the
+  QR kernels on go-simd FMA; `SciPyExact` and shorter problems keep MINPACK's
+  three-accumulator `enorm`, for a measured reason that is not parity. The
+  measurement below was made on the small problems (the scalar callers, fewer
+  than 32 rows), where it holds; the large-n row it asked for is the one the
+  default now serves. Measured 2026-11-12 (Apple M4 Max, one core, load
+  5-6, six interleaved rounds; `enorm_variants_test.go`): a plain
+  four-accumulator sum of squares (falling back to MINPACK's norm when the sum
+  leaves [1e-250, 1e290]) takes 2.0 ns at n = 4, 3.8 ns at n = 16, 20 ns at
+  n = 100 and 287 ns at n = 1000, against 3.0, 10.2, 70.8 and 1043 ns for
+  MINPACK's, and on unit-scale inputs its error is smaller (worst 2.5 ulp at n = 1000
+  against 10.8); outside that range it falls back to MINPACK's norm and is
+  equal to it (11.70 ulp at 2^500 and 9.90 at 2^-600, n = 1000, both).
+  Both stay within the bound (n/2 + 2 ulps against a 300-bit oracle, including
+  inputs from 2^-1060 to 2^1000), so the contract does not choose. The solvers
+  do: swapping it into the scalar callers (six interleaved rounds, p = 0.03)
+  took `CurveFit` LM (m = 10^4) -2.0%, `LeastSquares(LM)` -7.1% and `Leastsq`
+  -5.7% of the solve, and made `Root` +3.0% (`Fsolve` ~), because the QR
+  factorisation, not the norm, takes the time. The price is that the iterates
+  change (`powell_singular` takes 129 evaluations where MINPACK takes 106) and
+  the fixtures that assert SciPy's counts and QR factors go red, so a default
+  swap needs an `Exact` switch threaded through some 45 call sites, the fused
+  four-column kernels (`mpEnorm4`, `colEnorms`) included. A 2-7% gain on
+  7 µs solves, a loss on `Root`, and that change were not worth it on the
+  small problems: MINPACK's norm stays there, and nothing but the cost and the
+  numbers above decides it. The large-n rows (32 and more) take the fast
+  kernels by default; `Options.SciPyExact` types (`LSOptions`,
+  `LeastsqOptions`, `CurveFitOptions`, `RootOptions`) restore MINPACK's
+  operation order and norm everywhere.
 - **Defaults:** as SciPy's `_root_hybr`: maxfev 200(n+1) without a Jacobian
   and 100(n+1) with one, factor 100, xtol 1.49012e-8. Messages are SciPy's.
 - **Deviation:** `Nfev` excludes the two extra calls SciPy's Python wrappers
@@ -400,7 +430,7 @@ instead, with documented limits.
 Quadratic programming is designed but not implemented yet: a Goldfarb–Idnani
 dual active-set solver, then an OSQP-style ADMM solver for large and sparse
 problems. The design, its sources and the task list are in
-[`design-qp.md`](https://github.com/go-numerics/optimize/blob/v0.8.0/docs/design-qp.md).
+[`design-qp.md`](https://github.com/go-numerics/optimize/blob/v0.9.0/docs/design-qp.md).
 
 ## Global optimisers (v0.6.0)
 
@@ -408,7 +438,7 @@ Differential evolution, basin hopping and DIRECT/DIRECT-L are implemented:
 SciPy's exact random stream (PCG64 and the legacy
 MT19937, through go-ndarray's `random`), deterministic parallel evaluation,
 the C DIRECT code ported statement by statement. The design, its sources, the
-validation plan and the task list are in [`design-global.md`](https://github.com/go-numerics/optimize/blob/v0.8.0/docs/design-global.md).
+validation plan and the task list are in [`design-global.md`](https://github.com/go-numerics/optimize/blob/v0.9.0/docs/design-global.md).
 
 ## Brute, CheckGrad, ApproxFprime
 

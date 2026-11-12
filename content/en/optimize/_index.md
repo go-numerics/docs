@@ -4,10 +4,12 @@ weight: 10
 description: "Minimisation, scalar and system roots, nonlinear least squares, curve fitting with covariance, and linear programming."
 ---
 
-<!-- From go-numerics/optimize v0.8.0, README.md: the text is the library's, with its links pointed into this site and figures added. Change it there first. -->
+<!-- From go-numerics/optimize v0.9.0, README.md: the text is the library's, with its links pointed into this site and figures added. Change it there first. -->
 Numerical optimisation and root finding in pure Go (CGO=0): minimisation,
 scalar and system roots, nonlinear least squares, curve fitting with parameter
 covariance, and linear programming.
+
+🌐 **[Website](https://go-numerics.github.io)** · 📚 **[Documentation](https://go-numerics.github.io/docs/latest/optimize/)**
 
 The package covers the parts of `scipy.optimize` that scientific notebooks use
 most. Each function documents the SciPy call it corresponds to. The test suite
@@ -15,7 +17,7 @@ replays SciPy 1.18.1 on standard problems, and it checks solutions, objective
 values, status codes, messages, and iteration and evaluation counts.
 
 ```sh
-go get github.com/go-numerics/optimize@v0.8.0
+go get github.com/go-numerics/optimize@v0.9.0
 ```
 
 It works with [go-ndarray](https://github.com/go-ndarray/ndarray): curve-fit
@@ -33,6 +35,7 @@ have `…Array()` accessors.
 | `Minimize(…, NewtonCG, …)` | `minimize(method='Newton-CG')` | truncated Newton (Hess, HessP or FD) |
 | `Minimize(…, LBFGSB, …)` | `minimize(method='L-BFGS-B')` | L-BFGS-B 3.0 with bounds |
 | `Minimize(…, SLSQP, …)` with `Options.Constraints` | `minimize(method='SLSQP', constraints=…)`, MATLAB `fmincon` `'sqp'` | Kraft's SLSQP: bounds, equality and inequality constraints as `Constraint`, `NonlinearConstraint` or `LinearConstraint`; Lagrange multipliers in `Result.Multipliers` |
+| `Minimize(…, TrustConstr, …)` with `Options.Constraints` | `minimize(method='trust-constr')`, MATLAB `fmincon` `'interior-point'` | Byrd–Omojokun trust-region SQP, wrapped in a barrier (interior-point) method when there are inequalities or bounds; BFGS Hessians, or `Problem.Hess`/`HessP`; same constraint types; `Result.Optimality`, `ConstrViolation`, `Multipliers` |
 | `MinimizeScalar`, `Fminbound`, `Bracket` | `minimize_scalar` (brent, golden, bounded), `fminbound`, `bracket` | Brent, golden section, FMIN |
 | `Brentq`, `Brenth`, `Ridder`, `Bisect`, `Newton`, `RootScalar` | `brentq`, `brenth`, `ridder`, `bisect`, `newton` (Newton/secant/Halley), `root_scalar` | |
 | `Root`, `Fsolve` | `root(method='hybr')`, `fsolve` | MINPACK hybrd/hybrj (Powell hybrid) |
@@ -40,11 +43,11 @@ have `…Array()` accessors.
 | `LeastSquares(…, LM, …)`, `Leastsq` | `least_squares(method='lm')`, `leastsq` (with `cov_x`) | MINPACK lmder/lmdif |
 | `CurveFit`, `CurveFitModel` | `curve_fit` (`sigma` 1-D/2-D, `absolute_sigma`, bounds, losses) | LM or TRF, covariance as SciPy; the model per sample (`F`) or over arrays (`Vec`, one call per sweep as SciPy's `f(xdata, *p)`) |
 | `Linprog` | `linprog` | revised simplex (default) or interior point; duals |
-| `Quadprog` (**v0.5.0**, [docs/design-qp.md](https://github.com/go-numerics/optimize/blob/v0.8.0/docs/design-qp.md)) | MATLAB `quadprog`, OSQP | the API, validation and result blocks of ½xᵀPx + qᵀx s.t. equalities, inequalities, two-sided rows and bounds, with dense or sparse (go-sparse) P and A; solved today: positive definite P by the Goldfarb–Idnani dual active-set method (equalities, inequalities, two-sided rows, bounds; infeasibility certificates; dependent and redundant rows; `QPSolver` keeps the factors between solves: `UpdateQ`, `UpdateBounds`, `UpdateMatrixValues` and `WorkingSet` warm starts recover x and the multipliers from the cached factors and drop the constraints whose multiplier turned negative, Goldfarb–Idnani Prop. 8.1–8.2: 0.03 of the cold pivots at a 5% perturbation of q, 0.30 at 50%, 0.80 at 200%, same answer); a singular P, P = 0 (LP) or sparse constraints go to the ADMM method of OSQP v1.0.0 (`QPADMM`, `QPAuto` picks it; KKT by go-sparse's quasi-definite LDLᵀ with AMD ordering, Ruiz scaling, adaptive ρ, the unscaled termination test with duality gap, infeasibility and unboundedness certificates, non-convexity detection; defaults 1e-3 as OSQP's; `Polish` solves OSQP's reduced KKT system with iterative refinement and keeps the result when the residuals drop: x within 1e-6 of Clarabel on 34 of the 35 solved fixture cases at the default 1e-3 settings; for ADMM the `QPSolver` also keeps its factorisation and iterates: `UpdateQ`, `UpdateBounds` (refactor only when a row changes type) and `UpdateMatrixValues` (rescale, numeric refactor on the stored symbolic factor; an update that breaks quasi-definiteness is refused) and `WarmStart`/`X0`/`Y0`: 0.53 of the cold iterations after a 1% perturbation of q at 1e-6 tolerances): on the 38 problems OSQP can read, status, iteration count and ρ-update count equal OSQP's on all of them, and on 12 generated sparse problems (random QP, equality QP, Lasso, portfolio; sparse P and A, `tools/qporacle gen --set sparse`). On 33 Maros–Mészáros problems (tiny and small tiers, dense or sparse fixture form, `tools/qporacle mm fetch/convert`, pinned commit and SHA-256, regenerated on linux/amd64) ADMM at 1e-9 with polishing reaches Clarabel's objective on 27 and ends with OSQP v1.0.0's own status on the other 6 (QSHARE1B, QSHARE2B, QSCAGR7 and QSCTAP1 at the iteration limit, PRIMALC2 and PRIMALC5 with a dual-infeasibility certificate), and the active set reaches it on all 13 with a positive definite P. Against OSQP v1.0.0 and the `quadprog` package (`tools/qpbench`, one thread, medians of 5 interleaved rounds, [docs/perf.md]({{< relref "optimize/performance" >}})): ADMM runs OSQP's iterations exactly (25 of 25 instances) in 0.5–0.65× its time on the dense n ≥ 500 problems and 0.8–0.9× on the larger portfolios, but 1.04–1.49× in the solve phase and 2.2–4.9× in the setup on small sparse ones, where go-sparse's AMD, symbolic analysis and LDLᵀ solves are the cause (open defect, not worked around); the active set is 0.68–0.76× the `quadprog` package's time from n = 500, 1.09× at n = 200 and 2.0× at n = 50 (open defect). `QPAuto` picks the active set up to n + m = 2500, where it stops being faster than ADMM. Checked against OSQP, Clarabel and quadprog on 39 problems (x to 1e-7 and 1e-8) and against the SLSQP `lsei` chain on 600 random ones |
+| `Quadprog` (**v0.5.0**, [docs/design-qp.md](https://github.com/go-numerics/optimize/blob/v0.9.0/docs/design-qp.md)) | MATLAB `quadprog`, OSQP | the API, validation and result blocks of ½xᵀPx + qᵀx s.t. equalities, inequalities, two-sided rows and bounds, with dense or sparse (go-sparse) P and A; solved today: positive definite P by the Goldfarb–Idnani dual active-set method (equalities, inequalities, two-sided rows, bounds; infeasibility certificates; dependent and redundant rows; `QPSolver` keeps the factors between solves: `UpdateQ`, `UpdateBounds`, `UpdateMatrixValues` and `WorkingSet` warm starts recover x and the multipliers from the cached factors and drop the constraints whose multiplier turned negative, Goldfarb–Idnani Prop. 8.1–8.2: 0.03 of the cold pivots at a 5% perturbation of q, 0.30 at 50%, 0.80 at 200%, same answer); a singular P, P = 0 (LP) or sparse constraints go to the ADMM method of OSQP v1.0.0 (`QPADMM`, `QPAuto` picks it; KKT by go-sparse's quasi-definite LDLᵀ with AMD ordering, Ruiz scaling, adaptive ρ, the unscaled termination test with duality gap, infeasibility and unboundedness certificates, non-convexity detection; defaults 1e-3 as OSQP's; `Polish` solves OSQP's reduced KKT system with iterative refinement and keeps the result when the residuals drop: x within 1e-6 of Clarabel on 34 of the 35 solved fixture cases at the default 1e-3 settings; for ADMM the `QPSolver` also keeps its factorisation and iterates: `UpdateQ`, `UpdateBounds` (refactor only when a row changes type) and `UpdateMatrixValues` (rescale, numeric refactor on the stored symbolic factor; an update that breaks quasi-definiteness is refused) and `WarmStart`/`X0`/`Y0`: 0.53 of the cold iterations after a 1% perturbation of q at 1e-6 tolerances): on the 38 problems OSQP can read, status, iteration count and ρ-update count equal OSQP's on all of them, and on 12 generated sparse problems (random QP, equality QP, Lasso, portfolio; sparse P and A, `tools/qporacle gen --set sparse`). On 33 Maros–Mészáros problems (tiny and small tiers, dense or sparse fixture form, `tools/qporacle mm fetch/convert`, pinned commit and SHA-256, regenerated on linux/amd64) ADMM at 1e-9 with polishing reaches Clarabel's objective on 27 and ends with OSQP v1.0.0's own status on the other 6 (QSHARE1B, QSHARE2B, QSCAGR7 and QSCTAP1 at the iteration limit, PRIMALC2 and PRIMALC5 with a dual-infeasibility certificate), and the active set reaches it on all 13 with a positive definite P. Against OSQP v1.0.0 and the `quadprog` package (`tools/qpbench`, one thread, medians of 5 interleaved rounds, [docs/perf.md]({{< relref "optimize/performance" >}})): ADMM runs OSQP's iterations exactly (25 of 25 instances) in 0.5–0.65× its time on the dense n ≥ 500 problems and 0.8–0.9× on the larger portfolios, but 1.04–1.49× in the solve phase and 2.2–4.9× in the setup on small sparse ones, where go-sparse's AMD, symbolic analysis and LDLᵀ solves are the cause (open defect, not worked around); the active set is 0.68–0.76× the `quadprog` package's time from n = 500, 1.09× at n = 200 and 2.0× at n = 50 (open defect). `QPAuto` picks the active set up to n + m = 2500, where it stops being faster than ADMM. Checked against OSQP, Clarabel and quadprog on 39 problems (x to 1e-7 and 1e-8) and against the SLSQP `lsei` chain on 600 random ones |
 | `Brute` | `brute` | grid then Nelder–Mead polish |
 | `DifferentialEvolution` (**v0.6.0**; with `Constraints` (Lampinen's rule, trust-constr polish) and `Integrality`) | `differential_evolution` | the twelve strategies, immediate and deferred updating, `Workers` (results identical for every worker count with deferred updating), dithering, LHS / random / array init, `X0`, custom strategy, callback, L-BFGS-B polish; follows SciPy's random stream exactly (`NewRNG(seed)` is `rng=seed`, `NewLegacyRNG(seed)` is `seed=seed`); no allocation per generation; a huge `PopSize` is refused (population capped at 2^27 values) |
 | `Basinhopping` (**v0.6.0**) | `basinhopping` | Metropolis acceptance (`T = 0` is monotonic), adaptive step size, custom `TakeStep`, both accept-test forms incl. `ForceAccept` (which skips the Metropolis draw), callback, `NIterSuccess`; any `Minimize` method as the local minimiser (SciPy's default choice when `Method` is empty); follows SciPy's random stream, displacements and Metropolis draws interleaved on one source (`NewRNG` / `NewLegacyRNG`) |
-| `Direct` (**v0.6.0**; [docs/design-global.md](https://github.com/go-numerics/optimize/blob/v0.8.0/docs/design-global.md)) | `direct` | DIRECT and DIRECT-L (`Original` selects Jones' version), a statement-by-statement port of the C code SciPy wraps (MIT, [NOTICE](https://github.com/go-numerics/optimize/blob/v0.8.0/NOTICE)); deterministic, same points, `Nfev`, `Nit` and status as SciPy; `Workers` evaluates the points of one rectangle concurrently with identical results; the hidden-constraint code of the C version is ported but not reachable from SciPy's API |
+| `Direct` (**v0.6.0**; [docs/design-global.md](https://github.com/go-numerics/optimize/blob/v0.9.0/docs/design-global.md)) | `direct` | DIRECT and DIRECT-L (`Original` selects Jones' version), a statement-by-statement port of the C code SciPy wraps (MIT, [NOTICE](https://github.com/go-numerics/optimize/blob/v0.9.0/NOTICE)); deterministic, same points, `Nfev`, `Nit` and status as SciPy; `Workers` evaluates the points of one rectangle concurrently with identical results; the hidden-constraint code of the C version is ported but not reachable from SciPy's API |
 | `CheckGrad`, `ApproxFprime` | `check_grad`, `approx_fprime` | forward differences |
 
 Gradients are optional everywhere. Without one, finite differences use the
@@ -128,6 +131,14 @@ The README's curve fit and robust least-squares examples, drawn with
 
 {{< plotfig "robust" "Six points with one outlier, fitted with the squared loss and with soft_l1" >}}
 
+## Accuracy contract
+
+Bound: the solution of every solver family is within a stated tolerance of the optimum, and so is its value: `max|x - x*|` and `|f - f*|` at most 1e-3 and 1e-6 for every `Minimize` method at its default tolerances (measured worst case 1.5e-4 and 1.1e-8, SLSQP on Rosenbrock; BFGS, CG, Powell and trust-constr reach 1e-6 or better, and so does L-BFGS-B on those two problems; L-BFGS-B stops on a relative reduction of f (factr·eps = 2.2e-9 of max(|f|, 1) by default), so its bound on `f` is relative to the optimum, 1e-6·max(1, |f*|): the measured worst case is |f - f*| = 3.5e-6 at f* = 4.04e4 (8.7e-11 relative) with |x - x*| = 5.8e-4, the same on `Options.SciPyExact` and on the default kernels, `TestAccuracyBoundLBFGSB`), 2e-12 + 4·eps·|x*| for the bracketing root finders, 1e-7 for `Root`/`Fsolve` (hybr, xtol 1.49e-8), 1e-6 for `LeastSquares`, `Leastsq` and `CurveFit`, 1e-9 for `Linprog` and 1e-12 for `Quadprog` on the test problems; the Euclidean norm of the MINPACK ports is within n/2 + 2 ulps of the exact norm (measured: 11.7 ulps at n = 1000), without spurious overflow or underflow.
+Oracle: exact optima of the test problems (Rosenbrock (1, 1), Himmelblau (3, 2), a line fitted to integers by `big.Rat` normal equations, a vertex and a quadratic with rational optima) and 300-bit `math/big` for the irrational ones (the cube root of 2 and 3, the square root of 2) and for the norm; never another float64 implementation.
+Exact: bit-for-bit SciPy is an option, not the contract: `Options.SciPyExactUpdate` keeps SciPy's dense BFGS update, and `SciPyExact` (in `RootOptions`, `LeastsqOptions`, `LSOptions`, `CurveFitOptions`) makes the MINPACK ports (`Root`, `Fsolve`, `Leastsq`, LM) keep MINPACK's operation order, norm included, so that their iterates and counts equal SciPy's. By default they do so only below 32 equations or residuals; from 32 up they run on FMA and go-simd kernels (tolerance-validated, iteration counts may differ).
+
+The bounds are asserted by `TestAccuracyBound…` in `accuracy_bound_test.go`. Matching SciPy's iterates in the last bit is a way of porting, used while a solver is ported and kept where it costs nothing; it never decides whether a faster algorithm may land. A faster default lands when it is within the bound above. `docs/design.md` records the MINPACK norm measurement (a plain four-accumulator sum is 3.5× faster per call and more accurate on unit-scale inputs (equal elsewhere), but moves a 7 µs LM solve by at most -7% and `Root` by +3%, and changes the iterate counts): MINPACK's norm stays below 32 equations or residuals and under `SciPyExact`; from 32 up the default norm is the plain sum (`fastEnorm`).
+
 ## How close to SciPy
 
 All numbers below are against SciPy 1.18.1 fixtures generated by
@@ -139,8 +150,8 @@ noted.
 |---|---|---|
 | `Minimize` (NM, Powell, CG, BFGS, Newton-CG, L-BFGS-B) | 79 runs on Rosenbrock n=2/10/100, Beale, Himmelblau, Powell singular, Wood, with and without gradients, bounds, iteration limits | every converged SciPy run is matched with an objective at least as good, within the method's own tolerance; on the arithmetic-only problems, **36/38 runs take SciPy's exact path** (identical nit, nfev, njev); the 2 exceptions are explained in docs/design.md |
 | L-BFGS-B | 44 runs, including 8 problems that reach rare branches (Cholesky failures, the 3.0 backtrack, Cauchy breakpoints) | identical nit/nfev/njev/status/message on every analytic-gradient run except Rosenbrock n=100 (513 vs 514 iterations, SciPy's Accelerate BLAS rounding); bit-identical to SciPy's C code built with sequential BLAS |
-| `Minimize(SLSQP)` | 100 runs: 36 Hock–Schittkowski problems and 10 stress cases (infeasible, inconsistent and singular linearisations, fixed variables), with and without derivatives, `NonlinearConstraint`/`LinearConstraint` and option variants; SciPy's x86_64 wheel | 100/100 statuses; **88/100 on SciPy's exact path** (nit/nfev/njev, x to 1e-7, multipliers to 1e-6); the other 12 are runs on which SciPy's own arm64 and x86_64 wheels also disagree |
-| `Minimize(TrustConstr)` | the same 100 runs | success/failure as SciPy on 100/100 (2 are errors in both: more equalities than variables); identical status on 93/100 on arm64, 94/100 on amd64 (the rest are gtol against xtol, both successes); objective within 1e-5 of SciPy or 1e-4 of the known optimum on every success; **65/100 on SciPy's exact path on arm64, 69/100 on amd64** — SciPy's own wheels disagree with each other on 35 runs, and the iterates of the 4 other runs that leave the path were traced to the last bit (design page) |
+| `Minimize(SLSQP)` | 100 runs: 36 Hock–Schittkowski problems and 10 stress cases (infeasible, inconsistent and singular linearisations, fixed variables), with and without derivatives, `NonlinearConstraint`/`LinearConstraint` and option variants; SciPy's x86_64 wheel (`tools/slsqporacle`) | 100/100 statuses; **88/100 on SciPy's exact path** (nit/nfev/njev, x to 1e-7, multipliers to 1e-6); the other 12 are runs on which SciPy's own arm64 and x86_64 wheels also disagree (docs/design.md) |
+| `Minimize(TrustConstr)` | the same 100 runs (`tools/slsqporacle --method trust-constr`) | success/failure as SciPy on 100/100 (2 are errors in both: more equalities than variables); identical status on 93/100 on arm64, 94/100 on amd64 (the rest are gtol against xtol, both successes); objective within 1e-5 of SciPy or 1e-4 of the known optimum on every success; **65/100 on SciPy's exact path on arm64, 69/100 on amd64** — SciPy's own wheels disagree with each other on 35 runs, and the iterates of the 4 other runs that leave the path were traced to the last bit (docs/design.md) |
 | `Root`/`Fsolve` | 23 runs (MGH problems with and without Jacobian, failure and option cases) | 23/23 identical counts, status and message; x bit-identical |
 | `LeastSquares(LM)` / `Leastsq` | 39 / 44 runs on the MGH least-squares set | 36/39 and 41/44 identical counts; the mismatches are on problems that call exp/sin/cos, where Go's libm and the C library differ in the last ulp |
 | `LeastSquares(TRF)` | 89 runs: MGH problems, bounds, all robust losses, `x_scale`, 2-/3-point differences | 86/89 identical nfev/njev/status (84/89 on amd64); every cost and active mask matches |
@@ -149,9 +160,10 @@ noted.
 | `MinimizeScalar`, `Bracket` | 36 + 6 runs | identical x/nit/nfev/message on arithmetic-only functions |
 | `Linprog` | 46 problems vs HiGHS: Klee–Minty, cycling examples, degenerate, free and upper-bounded variables, redundant rows, infeasible, unbounded, random up to 60×40 | 46/46 statuses; objective error ≤ 1.8e-15 (simplex) and ≤ 2e-8 (interior point); solutions and duals inside SciPy's optimal sets |
 | `Brute` | 4 grids (the SciPy documentation example, Himmelblau, Rosenbrock 3-D) | x and f to 1e-9 |
-| `DifferentialEvolution` (on main) | 378 runs against SciPy 1.18.1 (linux/amd64) on 10 arithmetic-only objectives, both seeding forms (`NewRNG`: `rng=int`, PCG64; `NewLegacyRNG`: `seed=int`, MT19937): the 12 strategies, immediate and deferred updating, LHS / random / array init, `X0`, dither, tolerances, `MaxFev`, `MaxIter`, `PopSize`, linear / polynomial / equality / impossible constraints, integer variables | unpolished (296 runs): `nfev`, `nit`, message, x, fun, the final population and its energies bit for bit on every run, i.e. SciPy's exact random path; polished (82 runs): 56 bit-identical, the rest differ only through the polisher (L-BFGS-B or trust-constr, last digits; trust-constr values agree within 1e-3) |
-| `Basinhopping` (on main) | 224 runs against SciPy 1.18.1 (linux/amd64): four polynomial landscapes with analytic gradients, BFGS and L-BFGS-B, both seeding forms, several temperatures, step intervals, `NIterSuccess`, both accept-test forms with `ForceAccept` | every run makes SciPy's decisions (same accept sequence at every step, same `nit`, failures and message, values within 1e-8); 95 are bit-identical in the whole trace, the others differ in the last digits of the local minimiser's final iterate (open defect in the BFGS / L-BFGS-B ports) |
-| `Direct` (on main) | 770 runs against SciPy 1.18.1 (linux/amd64): 27 objectives, DIRECT and DIRECT-L, fixed and Jones-updated `eps`, `len_tol`/`vol_tol`/`f_min` stops, `maxfun` and `maxiter` limits, NaN and ±Inf regions | on the 618 arithmetic-only runs: status, message, `nfev`, `nit`, x and fun bit for bit, and the first 25 evaluated points; on the transcendental ones: same status and counts on all, fun bit-identical on most; the SciPy documentation example gives `nfev` 2011 and 207 |
+| `DifferentialEvolution` | 378 runs (`tools/globaloracle`, SciPy 1.18.1 linux/amd64) on 10 arithmetic-only objectives (incl. 112 with linear / polynomial nonlinear / equality / impossible constraints and integer variables), for both seeding forms (`NewRNG`: `rng=int`, PCG64; `NewLegacyRNG`: `seed=int`, MT19937): all 12 strategies, immediate and deferred updating, LHS / random / array init, `X0`, constant and dithered mutation, `Atol`, `Tol`, `MaxFev`, `MaxIter` 0/1/3, `PopSize` 1..30, NaN objectives | unpolished (296 runs): `nfev`, `nit`, message, x, fun, the final population and its energies, `constr_violation`, bit for bit on every run, i.e. SciPy's exact random path (constraints and integrality included); polished (82 runs): 57 bit-identical; the others differ only in the polisher (L-BFGS-B reproduces SciPy's BLAS/LAPACK summation orders only in part, trust-constr follows another finite-difference path in the last digits; trust-constr results agree within 1e-3); NumPy's `mean`/`std` order is pinned on 50 arrays |
+| `DifferentialEvolution`, `Basinhopping`, `Direct`: statistics | `internal/gofuncs` (21 functions of SciPy's `go_benchmark_functions`, checked against SciPy's classes at three points), SciPy 1.18.1 seeded 100 times: `differential_evolution` (popsize 20) on 16 transcendental objectives, `basinhopping` (L-BFGS-B, bounds) on 8, `direct` once on 21 | success counts equal on 16 of 16 DE functions and within Fisher p > 0.4 on all 8 basin-hopping ones (one-sided p < 0.01 is a failure; a planted weakness gives p = 5e-46), median nfev equal on 13 DE functions and within 3 % on the others, 1359 of 1600 DE seeds on SciPy's exact path; DIRECT: same status and success on 21 of 21, same `nfev` and `nit` on 19 |
+| `Basinhopping` | 224 runs (`tools/globaloracle bh`, SciPy 1.18.1 linux/amd64): Himmelblau, Rosenbrock, six-hump camel and a quartic with four minima, analytic gradients, BFGS and L-BFGS-B, both seeding forms, `T` 1 / 0 / 0.3 / -1 / 5, adaptive-step intervals and rates, `NIterSuccess`, `niter` 0 and 1, the old and new accept-test forms with `ForceAccept` | every run makes SciPy's decisions: same per-step accept sequence, same `nit`, failures and message, values within 1e-8; 136 of the 224 are bit-identical in the whole trace, counts, x and fun; the others differ in the last digits of the local minimiser's final iterate, i.e. in L-BFGS-B (BFGS now follows SciPy's evaluation trace bit for bit, see "BFGS and L-BFGS-B last digits" in docs/design-global.md) |
+| `Direct` | 770 runs (`tools/globaloracle`, SciPy 1.18.1 linux/amd64): 27 objectives (shifted spheres in 1–10 dimensions, Rosenbrock, Goldstein–Price, six-hump camel, Styblinski–Tang, Shekel 5/7/10, Booth, Matyas, Beale, Branin, Hartmann 3/6, Ackley, Rastrigin, NaN/±Inf regions), DIRECT and DIRECT-L, `eps` fixed and Jones-updated, `len_tol`/`vol_tol`/`f_min` stops, `maxfun` (incl. the odd-budget rounding) and `maxiter` limits | arithmetic-only objectives (products and sums, 618 of the runs): status, message, `nfev`, `nit`, x and fun bit for bit and the first 25 last-evaluated points, on every case; transcendental ones: same status and same counts on every case, fun bit-identical on most (the rest differ in the last digits through `cos`/`exp`); the SciPy documentation example gives `nfev` 2011 and 207 |
 
 How such close agreement is possible:
 
@@ -160,7 +172,7 @@ How such close agreement is possible:
   would otherwise fuse it into an FMA on arm64 and other architectures.
 - The tests use FMA-free oracles.
 
-See [Design]({{< relref "optimize/design" >}}).
+See [docs/design.md]({{< relref "optimize/design" >}}).
 
 **Negative controls.** One algorithmic step was broken at a time; each break
 made the suite fail, and each was then reverted:
@@ -183,7 +195,16 @@ refbench (`bench/`), v0.8.0, 2026-11-10: one core on both sides, SciPy
 1.18.1, medians of 7 interleaved rounds, started at a 1-minute load below 8
 (Apple M4 Max). The SLSQP and trust-constr rows are `tools/slsqpbench`,
 2026-10-30. [docs/perf.md]({{< relref "optimize/performance" >}}) and
-[docs/perf-table.md](https://github.com/go-numerics/optimize/blob/v0.8.0/docs/perf-table.md) have every row and the method.
+[docs/perf-table.md](https://github.com/go-numerics/optimize/blob/v0.9.0/docs/perf-table.md) have every row and the method.
+
+`Options.SciPyExact` (L-BFGS-B and SLSQP) selects SciPy's arithmetic bit for
+bit: sequential sums without FMA and, for SLSQP, the reference loop of the
+triangular solve (`lsi`). The default of SLSQP solves it in one
+`floats.AxpyRowsNoFMA` pass per column: the same values, except that zero
+coefficients are no longer skipped, so an Inf (or NaN) in the constraint block
+meeting a zero coefficient now gives NaN where the reference loop keeps the
+Inf, and a signed zero may differ. A finite problem is unaffected; the SciPy
+fixtures keep their path in both modes.
 
 | Benchmark | Go | SciPy | Speed-up |
 |---|---|---|---|
@@ -215,21 +236,36 @@ takes 542 iterations against 544). `Options.SciPyExactUpdate` selects SciPy's
 update, two dense n×n products summed in SciPy's order (bit for bit, O(n³),
 about 90 ms at n = 100 on `floats.AxpyRowsNoFMA`). The BFGS n = 100 row above
 is the default update (refbench v0.8.0: 5.62 ms against SciPy's 47.1 ms); no
-row is slower than SciPy (#53).
+row is slower than SciPy (#53). MINPACK (`Root`, `Fsolve`, LM, `Leastsq`,
+`CurveFit`) runs its QR, Q accumulation, Givens sweeps and norms on FMA and
+go-simd kernels from 32 equations or residuals up (tolerance-validated);
+`SciPyExact` in each options type keeps MINPACK's summation order bit for bit.
+L-BFGS-B likewise runs on FMA and go-simd kernels by default
+(tolerance-validated, iteration counts may differ from SciPy's by a few);
+`Options.SciPyExact` selects SciPy's summation order and x87 `dnrm2` bit for
+bit, at about twice the time.
 
 ## Not done
 
+The SciPy and MATLAB gaps are listed in [docs/coverage.md](https://github.com/go-numerics/optimize/blob/v0.9.0/docs/coverage.md).
+[docs/roadmap.md](https://github.com/go-numerics/optimize/blob/v0.9.0/docs/roadmap.md) lists what Julia's Optim, Roots and LsqFit,
+R and GSL do better, ranked by gain for cost, with an implementation source
+and an oracle for each item.
+
 - **`minimize`:** COBYLA/COBYQA, TNC, dogleg/trust-ncg and the other
   trust-region methods; trust-constr's `keep_feasible`, sparse Jacobians and
-  SR1 Hessian option; QP solvers (active set, ADMM) are planned next and will
-  share the constraint types. For L-BFGS-B, the `hess_inv` operator is not
+  SR1 Hessian option. For L-BFGS-B, the `hess_inv` operator is not
   provided.
+- **`Quadprog`:** a positive semidefinite P in the active-set method
+  (outer proximal-point iterations), OSQP's indirect (PCG) linear-system
+  solver, the Maros–Mészáros medium and full tiers in the benchmark, and the
+  performance defects of [docs/perf.md]({{< relref "optimize/performance" >}}).
 - **`root` / `least_squares`:** `root` methods other than `hybr`; the
   `band`/`col_deriv` options; dogbox; the lsmr trust-region solver and sparse
   Jacobians.
 - **`linprog`:** HiGHS-class performance, MILP, singleton-row presolve,
   crossover and sparse matrices.
-- **Global optimisers:** (v0.6.0, [docs/design-global.md](https://github.com/go-numerics/optimize/blob/v0.8.0/docs/design-global.md)):
+- **Global optimisers:** (v0.6.0, [docs/design-global.md](https://github.com/go-numerics/optimize/blob/v0.9.0/docs/design-global.md)):
   DE `init='sobol'` and `'halton'` (no QMC engine yet), shgo, dual_annealing;
   the L-BFGS-B port reproduces SciPy's BLAS/LAPACK summation orders only in
   part (136 of 224 basin-hopping runs bit-identical, see design-global.md
@@ -241,4 +277,4 @@ row is slower than SciPy (#53).
 
 ## Licence
 
-BSD 3-Clause; see [LICENSE](https://github.com/go-numerics/optimize/blob/v0.8.0/LICENSE).
+BSD 3-Clause; see [LICENSE](https://github.com/go-numerics/optimize/blob/v0.9.0/LICENSE).

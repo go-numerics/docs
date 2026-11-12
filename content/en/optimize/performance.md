@@ -4,7 +4,7 @@ weight: 30
 description: "Timings against SciPy 1.18.1, including the curve fits where SciPy is faster, and how they were taken."
 ---
 
-<!-- From go-numerics/optimize v0.8.0, docs/perf.md: the text is the library's, with its links pointed into this site. Change it there first. -->
+<!-- From go-numerics/optimize v0.9.0, docs/perf.md: the text is the library's, with its links pointed into this site. Change it there first. -->
 
 ## The harness (refbench, `bench/`)
 
@@ -32,7 +32,7 @@ What makes a row comparable (checked, not assumed):
 - **Same path.** `TestCounts` runs every row once on both sides and compares
   `nfev` and `nit`; an optimiser that converges in a different number of
   evaluations is a different computation. Results are in
-  [perf-counts.md](https://github.com/go-numerics/optimize/blob/v0.8.0/docs/perf-counts.md): 40 of the 46 compared rows are equal; the six
+  [perf-counts.md](https://github.com/go-numerics/optimize/blob/v0.9.0/docs/perf-counts.md): 40 of the 46 compared rows are equal; the six
   `n = 100` Rosenbrock rows take different paths (counts within 11%) and are
   named in `divergent` with their reason. SciPy's `root`/`fsolve` count two more
   evaluations than ours on the same path.
@@ -52,7 +52,7 @@ What makes a row comparable (checked, not assumed):
 accessors, constructors, the QP solver, which SciPy does not have, and the random
 sources) with the reason of each.
 
-**The current timings are [perf-table.md](https://github.com/go-numerics/optimize/blob/v0.8.0/docs/perf-table.md)**: refbench on v0.8.0,
+**The current timings are [perf-table.md](https://github.com/go-numerics/optimize/blob/v0.9.0/docs/perf-table.md)**: refbench on v0.8.0,
 2026-11-10, 1-minute load 4.81 to 6.91 (gate 8), one core, interleaved rounds
 per row, Apple M4 Max. No row is slower than SciPy. BFGS on Rosenbrock n = 100
 (issue #53) is 5.62 ms against 47.1 ms (8.4×) with the default O(n²) update,
@@ -90,7 +90,7 @@ Jacobian through go-ndarray, 62 per iteration), `curve_fit` TRF.
 the default tolerances of both, the same forward-difference Jacobian (MINPACK
 `fdjac2` with `epsfcn` = machine ε for LM, `2-point` with step √ε for TRF, one
 model sweep per parameter) and the same counts (21 evaluations for LM, 6 for
-TRF, 8 for TRF with bounds; [perf-counts.md](https://github.com/go-numerics/optimize/blob/v0.8.0/docs/perf-counts.md)). One thing
+TRF, 8 for TRF with bounds; [perf-counts.md](https://github.com/go-numerics/optimize/blob/v0.9.0/docs/perf-counts.md)). One thing
 differed: SciPy calls its model **once per sweep** on the whole array
 (`a*np.exp(-b*x)+c`, four vectorised NumPy passes), while `CurveFit` takes a
 scalar model and calls it **once per sample**, 10⁴ Go calls of a closure that
@@ -121,7 +121,7 @@ every SciPy fixture, 1-D and (2, m) xdata, sigma, bounds, both methods, and with
 tolerance (1e-6 relative on `popt`), as the scalar rows always did, and take the
 same 21 / 6 / 8 evaluations.
 
-**Timing** (refbench, v0.8.0, 2026-11-10, [perf-table.md](https://github.com/go-numerics/optimize/blob/v0.8.0/docs/perf-table.md)):
+**Timing** (refbench, v0.8.0, 2026-11-10, [perf-table.md](https://github.com/go-numerics/optimize/blob/v0.9.0/docs/perf-table.md)):
 
 | Row | Go, model per point | Go, `Model.Vec` | SciPy | Speed-up |
 |---|---:|---:|---:|---:|
@@ -140,11 +140,13 @@ site's rule depends on how it is validated:
 |---|---|---|---|
 | BFGS update `A1·(H·A2)` (`matmul`) | 97% of BFGS n = 100 | bit for bit against SciPy (each entry a left-to-right sum of rounded products, as reference BLAS / OpenBLAS's non-FMA kernels) | loops reordered i-k-j, the row update on `floats.AxpyNoFMA`: every entry still receives its products in increasing k, each rounded before the add, so **the same bits** (`TestMatmulSameBitsAsDotProducts` against the i-j-k loop, signed zeros, NaN, Inf, n up to 129). `go test -bench`, loaded host: 530 ms → 172 ms per call |
 | infinity norm (`norm(v, inf)`, CG/BFGS stopping test) | 53% of CG n = 100 (`math.Max` per element) | exact in any order | `floats.MaxAbs`; CG n = 100 2.50 ms → 1.24 ms (loaded host). It now returns NaN for a vector holding both NaN and +Inf, as `numpy.linalg.norm(v, inf)`; the `math.Max` loop returned +Inf there |
-| L-BFGS-B `formk`, `subsm`, `dnrm2` | 40% of L-BFGS-B n = 100 | bit for bit against SciPy's C code with OpenBLAS's x87 `dnrm2` and TRSM order | **left**: no kernel keeps that order |
-| MINPACK `qrfac`/`qform` (LM, `root`) | most of `root` n = 100 | bit for bit (MINPACK order, `enorm`'s three sums) | **left** (already fused in order, PR #7) |
-| SLSQP `trsm`, `ldp` | Quad50 | bit for bit against SciPy's Fortran | **left** |
+| SLSQP `trsm` (in `lsi`, feeding `ldp`) | 28% of Quad50 | same values as the reference loop (`TestTrsmFastMatchesReference`, bit for bit on finite data, zero coefficients included; the exception: zero coefficients are no longer skipped, so an Inf in B meeting a zero coefficient gives NaN where the reference loop keeps Inf, and a signed zero may differ) and Quad50's KKT closed form (x_i = 1 - λ/(2(i+1)), λ = 50/H₅₀, in big.Rat) reached within the contract's 1e-3 / 1e-6, measured 8.1e-5 and 1.7e-8 on both paths (`TestAccuracyBoundSLSQPQuad50`; the SciPy fixtures keep their path, `TestSLSQPFixtures` and `TestSLSQPFixturesExact`) | **done**: `trsmRUNFast` applies a column's updates in one `floats.AxpyRowsNoFMA` pass (a block of the column stays in SIMD registers across all k), `Options.SciPyExact` keeps the four-column loop. **The refbench run against SciPy is deferred** (1-minute load 10 to 30 during this work, above the limit of 8): no SciPy ratio is claimed (the last row, `tools/slsqpbench` 2026-10-30, is 3.35 ms against SciPy's 4.59 ms, taken before it); only an A/B of the two paths of this repository, Quad50, `go test -bench -cpu 1`: 5.1-5.4 ms (`SciPyExact`) → 3.75 ms. Axpy per column and an FMA eight-column Go loop were measured and gave no gain (28 µs, load-bound); `dlarfLeft`/`dot` (19% of Quad50) are the next site and are not done |
+| L-BFGS-B `dnrm2`, `formk`, `subsm` | 31% (`dnrm2`, x87 emulation), 43% (`formk`, `subsm`) of L-BFGS-B n = 100 | accuracy contract: `dnrm2` within n/2 + 2 ulp of a 300-bit sum (`TestFastEnormBound`), the minimiser and the value within the README's bound of the exact optimum, bounded and unbounded (`TestAccuracyBoundLBFGSB`), and every SciPy fixture within its bound (`TestLBFGSBFixturesFast`, nit within 10% + 2) | **done**: `dnrm2` is `sqrt(floats.Dot(v, v))` (scaled sum outside 1e-145..1e150); the `W'Zd` dots and `Z'W` updates of `subsm` and the `Y'ZZ'Y`, `S'AA'S` blocks of `formk` are `floats.Dot`/`Axpy` when nothing is bounded and go-simd/floats' gather kernels `DotIdx`/`DotGather`/`AxpyGather` (v0.17.0) otherwise. `SciPyExact` keeps SciPy's order. **The refbench run against SciPy is deferred**: the 1-minute load was 13 to 115 during this work, above the limit of 8, so no SciPy ratio is claimed for this change (the last refbench row, v0.8.0, is 4.75 ms against SciPy's 12.1 ms, taken before it). Only an A/B of the two paths of this repository, Rosenbrock n = 100, `go test -bench -cpu 1` at load 13, exists: 6.6 ms (`SciPyExact`) → 3.2 ms. Accuracy is asserted against exact optima, bounded and unbounded (`TestAccuracyBoundLBFGSB`), not against the `SciPyExact` path |
+| MINPACK `qrfac`/`qform`/`r1mpyq`/`enorm` (LM, `Leastsq`, `CurveFit`, `Root`) | most of `root` n = 100 | accuracy contract: `fastEnorm` within n/2 + 2 ulp of a 300-bit sum (`TestFastEnormBound`), factorisation, `Q` and Givens sweeps within 1e-8..1e-10 of MINPACK's order on random and degenerate matrices, and the solutions of `Root`/`Fsolve` (1e-7) and LM, `Leastsq`, `CurveFit` (1e-6) within the README's bounds of exact optima from 32 rows up (`TestAccuracyBoundMinpackFast`) | **done** from 32 residuals/equations: the QR, `Q` accumulation, rank-1 Givens sweeps and norms run on `floats.Dot`/`Axpy`/`Axpby3` (FMA, lane-blocked sums); below 32 and with `SciPyExact` MINPACK's order is kept (bit for bit). **The refbench run against SciPy is deferred**: the 1-minute load was 24 to 115 during this work, above the limit of 8, so no SciPy ratio is claimed (the last refbench rows, v0.8.0, are Root n = 100 0.57 ms against SciPy's 0.84 ms and `CurveFit` LM 1e4 1.3 ms against 1.43 ms, taken before it). Only an A/B of the two paths of this repository exists, `go test -bench -cpu 1` at load 85-115: Root n = 100 0.96 ms (`SciPyExact`) → 0.78 ms; `CurveFit` LM 1e4 is dominated by the model and shows no measurable change. Accuracy is asserted against exact optima from 32 rows up (`TestAccuracyBoundMinpackFast`) |
 | trust-constr projections | Quad50 | tolerance | already on `floats.Dot`/`Axpy` (lane-blocked order, labelled in `trustconstr_linalg.go`) |
 | Newton-CG inner CG (n = 100, Hessian-vector product) | its own loop and the Hessian product | path compared with SciPy (perf-counts.md) | **left** for now: 33× faster than SciPy in the earlier table |
+
+**Provenance of `perf.json` and `perf-table.md`:** they are the refbench run of 2026-11-10 at commit 6ea6138 (load 4.8-6.9), unchanged except one hand edit made in the MINPACK change: the allocation count of `Root/hybr/broyden100`, 25 → 15, because `TestPerf` checks allocations against the current code (`Root` n = 100 now takes the default kernels). That row's timings are the old ones, taken before the change; the next refbench run at load below 8 replaces both files.
 
 No reordered kernel was introduced: both changes keep the reference's bits.
 `floats` stubs lacked `//go:noescape`, so these calls first moved callers'
@@ -332,9 +334,11 @@ the 21 evaluations of the model over 10⁴ points: a Go closure calling
 `math.Exp` costs about 45 µs per sweep, against 29 µs for NumPy's
 vectorised `a*np.exp(-b*x)+c`. The solver itself now takes about 0.4 ms
 against about 0.8 ms for SciPy's compiled MINPACK and wrappers; what is
-left of it is the minimum number of latency-bound passes MINPACK's order
-of operations allows (each sum must stay sequential to keep the results
-bit-identical). `CurveFitOptions.Workers` evaluates the model in parallel
+left of it is the cost of the QR passes over 10⁴ rows, which the default
+now runs on go-simd FMA kernels (the sums are no longer sequential; the
+solution is within 1e-6 of the exact optimum on problems of 32 to 300 rows,
+`TestAccuracyBoundMinpackFast`).
+`CurveFitOptions.Workers` evaluates the model in parallel
 when that is acceptable; the table is single-threaded.
 
 `root` on 100 equations is 1.27×: SciPy's 0.83 ms is about 0.31 ms of

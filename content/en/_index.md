@@ -26,14 +26,14 @@ beside it.
 
 | Library | Version | What it does |
 | --- | --- | --- |
-| [optimize]({{< relref "optimize" >}}) | v0.8.0 | minimisation (Nelder–Mead, Powell, CG, BFGS, Newton-CG, L-BFGS-B), constrained minimisation (SLSQP and the trust-constr interior-point method, with bounds, equality and inequality constraints), quadratic programming (`Quadprog`: Goldfarb–Idnani active set and OSQP v1.0.0's ADMM), scalar and system roots, nonlinear least squares, curve fitting with covariance, linear programming |
+| [optimize]({{< relref "optimize" >}}) | v0.9.0 | minimisation (Nelder–Mead, Powell, CG, BFGS, Newton-CG, L-BFGS-B), constrained minimisation (SLSQP and the trust-constr interior-point method, with bounds, equality and inequality constraints), quadratic programming (`Quadprog`: Goldfarb–Idnani active set and OSQP v1.0.0's ADMM), scalar and system roots, nonlinear least squares, curve fitting with covariance, linear programming, global optimisation (`DifferentialEvolution`, `Basinhopping`, `Direct`, on SciPy's exact random stream) |
 | [integrate]({{< relref "integrate" >}}) | v0.2.2 | adaptive quadrature (QUADPACK), fixed and sample rules, multiple integrals, initial value problems (RK45, RK23, DOP853, Radau, BDF, stiffness switching) |
 | [special]({{< relref "special" >}}) | v0.8.0 | gamma, beta, error and normal functions, incomplete gamma and beta and their inverses, Bessel (I1, K1 from fitted octave interpolants since v0.5.6), zeta, combinatorics, elliptic integrals, complex functions; an element-wise layer over go-ndarray |
 
 ## Install
 
 ```sh
-go get github.com/go-numerics/optimize@v0.8.0
+go get github.com/go-numerics/optimize@v0.9.0
 go get github.com/go-numerics/integrate@v0.2.2
 go get github.com/go-numerics/special@v0.8.0
 ```
@@ -58,7 +58,10 @@ say so, and so do these pages:
 - `optimize`: in the refbench run of v0.8.0 (2026-11-10) no row is slower
   than SciPy; `curve_fit` on 10⁴ points is 1.07× (LM) and 1.26× (TRF) faster,
   and BFGS at n = 100 is 8.4× faster with its tolerance-validated O(n²) update
-  ([performance]({{< relref "optimize/performance" >}})).
+  ([performance]({{< relref "optimize/performance" >}})). The v0.9.0 default
+  kernels (L-BFGS-B, MINPACK from 32 rows, SLSQP `trsm`) are not yet measured
+  against SciPy: the refbench rows are those of v0.8.0, and only an A/B of the
+  two paths of the library is given.
 - `special`: single-threaded, a Go loop is about 3× slower than SciPy's C for
   the gamma and error-function families and 10–15× for the Bessel functions of
   real order and the incomplete beta function; the `nd` functions, spread over
