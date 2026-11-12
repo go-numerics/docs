@@ -28,9 +28,10 @@ them**, or `main` while none is tagged:
 
 `https://go-numerics.github.io/docs/` redirects to `latest/`. Each push to
 `main` replaces the directory of the version it describes, and nothing else.
-The pages describe **optimize v0.8.0, integrate v0.2.2 and special v0.8.0**
+The pages describe **optimize v0.9.0, integrate v0.2.2 and special v0.8.0**
 (the performance pages carry the refbench runs of optimize v0.8.0 and special
-v0.8.0, both taken below a 1-minute load of 8), published under `0.8/`.
+v0.8.0, both taken below a 1-minute load of 8; the faster default kernels of
+optimize v0.9.0 are not yet measured against SciPy), published under `0.9/`.
 
 To document a new release, set its entry in `params.libraries`, require the
 same version in `figures/go.mod`, redraw the figures, and update the pages.
@@ -104,10 +105,10 @@ any Apple-silicon Mac, or `GOARCH=arm64` under emulation.
 git clone --recurse-submodules https://github.com/go-numerics/docs.git
 cd docs
 mkdir -p data && go run github.com/tannevaled/hextra/cmd/pagehistory@v0.21.0 > data/pagehistory.json
-hugo server --baseURL http://localhost:1313/docs/0.8/
+hugo server --baseURL http://localhost:1313/docs/0.9/
 ```
 
-then open <http://localhost:1313/docs/0.8/>. Hugo 0.146 or later; no Python,
+then open <http://localhost:1313/docs/0.9/>. Hugo 0.146 or later; no Python,
 no Node. Go 1.27.2 or later only to redraw the figures.
 
 ## Publication
