@@ -26,7 +26,7 @@ beside it.
 
 | Library | Version | What it does |
 | --- | --- | --- |
-| [optimize]({{< relref "optimize" >}}) | v0.9.0 | minimisation (Nelder–Mead, Powell, CG, BFGS, Newton-CG, L-BFGS-B), constrained minimisation (SLSQP and the trust-constr interior-point method, with bounds, equality and inequality constraints), quadratic programming (`Quadprog`: Goldfarb–Idnani active set and OSQP v1.0.0's ADMM), scalar and system roots, nonlinear least squares, curve fitting with covariance, linear programming |
+| [optimize]({{< relref "optimize" >}}) | v0.9.0 | minimisation (Nelder–Mead, Powell, CG, BFGS, Newton-CG, L-BFGS-B), constrained minimisation (SLSQP and the trust-constr interior-point method, with bounds, equality and inequality constraints), quadratic programming (`Quadprog`: Goldfarb–Idnani active set and OSQP v1.0.0's ADMM), scalar and system roots, nonlinear least squares, curve fitting with covariance, linear programming, global optimisation (`DifferentialEvolution`, `Basinhopping`, `Direct`, on SciPy's exact random stream) |
 | [integrate]({{< relref "integrate" >}}) | v0.2.2 | adaptive quadrature (QUADPACK), fixed and sample rules, multiple integrals, initial value problems (RK45, RK23, DOP853, Radau, BDF, stiffness switching) |
 | [special]({{< relref "special" >}}) | v0.8.0 | gamma, beta, error and normal functions, incomplete gamma and beta and their inverses, Bessel (I1, K1 from fitted octave interpolants since v0.5.6), zeta, combinatorics, elliptic integrals, complex functions; an element-wise layer over go-ndarray |
 
