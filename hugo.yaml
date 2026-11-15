@@ -91,7 +91,7 @@ params:
   # CI checks they agree.
   libraries:
     optimize: "v0.9.0"
-    integrate: "v0.2.2"
+    integrate: "v0.3.0"
     special: "v0.8.0"
   versions:
     # The version selector shows "main" with the development icon.

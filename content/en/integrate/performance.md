@@ -4,7 +4,7 @@ weight: 60
 description: "Timings against SciPy 1.18.1 for quadrature and initial value problems, and how they were taken."
 ---
 
-<!-- From go-numerics/integrate v0.2.2, docs/perf.md: the text is the library's, with its links pointed into this site. Change it there first. -->
+<!-- From go-numerics/integrate v0.3.0, docs/perf.md: the text is the library's, with its links pointed into this site. Change it there first. -->
 
 The comparison runs under [refbench](https://github.com/go-scikit/refbench)
 v0.1.2 (`rbtest.Perf`): one core (GOMAXPROCS=1; BLAS threads pinned to 1),
@@ -12,17 +12,38 @@ interleaved rounds (Go, SciPy, Go, SciPy, ...), the 1-minute load read before
 every round and the measurement refused at a load of 8 or more. Target: no
 slower than SciPy (ratio <= 1); a row above 1 is an open defect.
 
-- The cases are in [`bench/perf_test.go`](https://github.com/go-numerics/integrate/blob/v0.2.2/bench/perf_test.go): one or more
+- The cases are in [`bench/perf_test.go`](https://github.com/go-numerics/integrate/blob/v0.3.0/bench/perf_test.go): one or more
   per public function, against the `scipy.integrate` function it ports (SciPy
   1.18.1 and NumPy 2.5.4, pinned with their hashes in `bench/refs.txt`).
 - Functions with no SciPy call to compare are named in
-  [perf-exempt.md](https://github.com/go-numerics/integrate/blob/v0.2.2/docs/perf-exempt.md) with the reason.
+  [perf-exempt.md](https://github.com/go-numerics/integrate/blob/v0.3.0/docs/perf-exempt.md) with the reason.
 - The table, with the allocation count of every case, is
-  [perf-table.md](https://github.com/go-numerics/integrate/blob/v0.2.2/docs/perf-table.md), generated from [perf.json](https://github.com/go-numerics/integrate/blob/v0.2.2/docs/perf.json). Its
-  timings are **deferred**: the host was at a 1-minute load of 10 to 24 when this
-  was written, so only the allocation counts are recorded (exact under any load).
+  [perf-table.md](https://github.com/go-numerics/integrate/blob/v0.3.0/docs/perf-table.md), generated from [perf.json](https://github.com/go-numerics/integrate/blob/v0.3.0/docs/perf.json) (amd64).
+  Its timings are **deferred**: no amd64 host has been idle yet, so only the
+  allocation counts are recorded (exact under any load).
+- **Timings** are in [perf-table-arm64.md](https://github.com/go-numerics/integrate/blob/v0.3.0/docs/perf-table-arm64.md) (darwin/arm64,
+  16 CPUs, Go 1.27.4, one core, 2026-11-14, after the port of ODEPACK's lsoda,
+  docs/design.md): every one of the 42 rows is faster than SciPy 1.18.1, with no
+  row above ratio 1. The slowest ratios are `TrapezoidND` axis 1 (0.81, with
+  quartiles 5.9e4 to 8.3e4 ns: a noisy round, 0.41 in the run of 2026-11-13),
+  `TrapezoidND` axis 0 (0.71), `Trapezoid` 1e5 (0.69), `CumulativeTrapezoid`
+  (0.56) and `Romb` (0.55),
+  where SciPy's compiled code is the competitor; the `(libm)` rows, with no
+  Python callback on the SciPy side, are 0.08 to 0.21. `SolveIVP` LSODA is 0.07
+  and `Odeint` 0.13 (Robertson) and 0.13 (Lotka, 101 times); the Adams/BDF port
+  runs more steps than the Runge–Kutta/BDF switch it replaced (those three rows
+  were 0.06, 0.13 and 0.08), at the same calls of the right-hand side as
+  SciPy's. Their times, 160, 189 and 88 us (re-measured after the go-simd
+  kernels of LSODA's linear algebra, which these systems of 2 and 3 equations
+  do not reach: the scalar loops serve them below 32 entries, so the change is
+  the noise between runs), are 11 to 19 % over those of the
+  run of 2026-11-13 17:18 (138, 159 and 79 us), which is the cost of the
+  correctly rounded power of the step ratios (about 7 %, with a cheaper
+  version of it than the first) and of the option plumbing. The 1-minute load
+  over the rounds was 6.46 to 7.70 (gate 8), so the run is valid; all 42 rows
+  are still faster than SciPy, none above ratio 0.71.
 - The previous table (own harness, host load 14 to 18) is kept as
-  [perf-legacy.md](https://github.com/go-numerics/integrate/blob/v0.2.2/docs/perf-legacy.md).
+  [perf-legacy.md](https://github.com/go-numerics/integrate/blob/v0.3.0/docs/perf-legacy.md).
 
 ```
 cd bench
@@ -54,10 +75,14 @@ an exemption.
   Jacobian. Within 2 % for Radau (285 steps against 283 without a Jacobian,
   282 against 285 with one: the stiff Newton iteration is sensitive to the
   rounding of the LU solves) and within 1 % for BDF without a Jacobian (one
-  call). By design different, so pinned in the test (Go, SciPy): `SolveIVP`
-  LSODA 2594 against 1803 calls, `Odeint` Robertson 2222 against 1683 and
-  Lotka 1880 against 1243: this package's stiff/non-stiff switching is not
-  ODEPACK's (docs/design.md). Those three ratios carry that difference.
+  call). Equal too for `SolveIVP` LSODA (1803 calls) and `Odeint` Robertson
+  (1683) and Lotka (1243) on arm64: LSODA is ODEPACK's lsoda, ported from
+  SciPy's `lsoda.c` (docs/design.md), where it was 2594, 2222 and 1880 calls
+  with the Runge–Kutta/BDF switch the port replaced and pinned as different by
+  design. Their step selection hinges on the last bit, so the equality is that
+  of this machine's compiler (the C source itself takes 647 or 682 evaluations
+  on another problem with and without fused multiply-adds), and no row is
+  pinned.
 - **Callbacks.** SciPy calls its integrand from Python. The rows say what they
   do about it:
   - `Quad` rows named `(libm)` integrate a function of the C library (`log`,
@@ -78,6 +103,10 @@ an exemption.
   `fixed_quad` itself uses; the cold computation (SciPy's `roots_legendre`) is
   not reachable from the public API once a rule is cached.
 
+LSODA's linear algebra uses go-simd/floats kernels from 32 entries up, and the
+Jacobian-reuse constants were tried on the corpus without a gain:
+[lsoda-kernels.md](https://github.com/go-numerics/integrate/blob/v0.3.0/docs/lsoda-kernels.md).
+
 ## Allocation counts
 
 The counts of the table are per call, recorded on linux/amd64 (the `perf` job's
@@ -94,5 +123,10 @@ and a triple quadrature went from 2 780 allocations to 2), a Radau step no
 longer allocates its interpolant (1 395 allocations to 350 on the Van der Pol
 problem), and a finite-difference Jacobian no longer allocates its work vectors
 (`BDF` 798 to 595, `LSODA` 781 to 608). The ODE rows still allocate what they
-store (the state at every step or output time). 32-bit lanes are not part of the
+store (the state at every step or output time): with ODEPACK's lsoda `Odeint`
+allocates 44 (Robertson) and 68 (Lotka) times per call, no longer 106 and 99,
+interpolating in place. The stored states of `SolveIVP` come out of chunks of
+4096 floats (a handful of allocations per call, not one per step): `SolveIVP`
+LSODA 37, was 764 with one state allocated per accepted step (727 steps), BDF
+60 and 62, Radau 63 and 65, RK45 38. 32-bit lanes are not part of the
 `perf` job; a count that differed there would be recorded per `GOARCH`.

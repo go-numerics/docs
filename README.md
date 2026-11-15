@@ -28,7 +28,7 @@ them**, or `main` while none is tagged:
 
 `https://go-numerics.github.io/docs/` redirects to `latest/`. Each push to
 `main` replaces the directory of the version it describes, and nothing else.
-The pages describe **optimize v0.9.0, integrate v0.2.2 and special v0.8.0**
+The pages describe **optimize v0.9.0, integrate v0.3.0 and special v0.8.0**
 (the performance pages carry the refbench runs of optimize v0.8.0 and special
 v0.13.0, both taken below a 1-minute load of 8; the faster default kernels of
 optimize v0.9.0 are not yet measured against SciPy), published under `0.9/`.

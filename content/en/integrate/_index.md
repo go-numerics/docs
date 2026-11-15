@@ -1,21 +1,21 @@
 ---
 title: "integrate"
 weight: 20
-description: "Adaptive quadrature, fixed and sample rules, multiple integrals, and initial value problems with RK45, RK23, DOP853, Radau, BDF and stiffness switching."
+description: "Adaptive quadrature, fixed and sample rules, multiple integrals, and initial value problems with RK45, RK23, DOP853, Radau, BDF and LSODA (ODEPACK's automatic Adams/BDF switching, with an Exact option equal to SciPy's lsoda.c)."
 ---
 
-<!-- From go-numerics/integrate v0.2.2, README.md: the text is the library's, with its links pointed into this site and figures added. Change it there first. -->
+<!-- From go-numerics/integrate v0.3.0, README.md: the text is the library's, with its links pointed into this site and figures added. Change it there first. -->
 Numerical integration and ODE solvers in pure Go (`CGO_ENABLED=0`): adaptive
 quadrature (QUADPACK), fixed and sample rules, multiple integrals, and initial
-value problems with RK45, RK23, DOP853, Radau, BDF and automatic stiffness
-switching — the functionality of `scipy.integrate` for the Go scientific
+value problems with RK45, RK23, DOP853, Radau, BDF and ODEPACK's LSODA
+(automatic Adams/BDF switching) — the functionality of `scipy.integrate` for the Go scientific
 stack ([go-ndarray](https://github.com/go-ndarray/ndarray), go-plot,
 go-notebook), with the same algorithms, defaults and diagnostics.
 
 🌐 **[Website](https://go-numerics.github.io)** · 📚 **[Documentation](https://go-numerics.github.io/docs/latest/integrate/)**
 
 ```
-go get github.com/go-numerics/integrate@v0.2.2
+go get github.com/go-numerics/integrate@v0.3.0
 ```
 
 ## Headline numbers
@@ -33,10 +33,13 @@ go get github.com/go-numerics/integrate@v0.2.2
   ([docs/perf.md]({{< relref "integrate/performance" >}})): one case per public function, the same data
   and the same number of integrand calls on both sides, `quad` also with
   compiled (libm) callbacks so that no Python runs in SciPy's integrator. The
-  table holds allocation counts; its timings are deferred until the host is
-  idle. The October 2026 timings (6–8× on `quad`, 90–190× on `solve_ivp`,
-  taken at a host load above 8) are kept in
-  [docs/perf-legacy.md](https://github.com/go-numerics/integrate/blob/v0.2.2/docs/perf-legacy.md) and carry no verdict.
+  arm64 table ([docs/perf-table-arm64.md](https://github.com/go-numerics/integrate/blob/v0.3.0/docs/perf-table-arm64.md), one core,
+  host load under 8, 2026-11-13) has every row faster than SciPy: `quad` takes
+  0.08–0.29 of SciPy's time, `solve_ivp` 0.01–0.06, `odeint` 0.08–0.13, the
+  array rules 0.19–0.69. The amd64 table holds allocation counts only, its
+  timings deferred until an amd64 host is idle. The October 2026 timings, taken
+  at a host load above 8, are kept in
+  [docs/perf-legacy.md](https://github.com/go-numerics/integrate/blob/v0.3.0/docs/perf-legacy.md) and carry no verdict.
 * **Verified.** Fixtures from SciPy and mpmath, the netlib Fortran as a second
   oracle, a negative control on the coefficients, 100 % statement coverage
   with `-race`, CI lanes on amd64, arm64, riscv64, loong64, ppc64le, s390x,
@@ -113,7 +116,7 @@ does not fuse multiply-adds, the last digits differ: Quad's error estimate is
 
 {{< plotfig "quad" "The integrand log(x)/sqrt(x) on (0, 1], its area shaded, with the value Quad returned" >}}
 
-More in [example_test.go](https://github.com/go-numerics/integrate/blob/v0.2.2/example_test.go).
+More in [example_test.go](https://github.com/go-numerics/integrate/blob/v0.3.0/example_test.go).
 
 ## Documentation
 
@@ -129,11 +132,17 @@ More in [example_test.go](https://github.com/go-numerics/integrate/blob/v0.2.2/e
 ## Not provided
 
 Complex-valued integrands and states, vectorized right-hand sides, sparse or
-banded Jacobians, `quad_vec`, `cubature`, `tanhsinh`, `solve_bvp` and the
-legacy `ode` class. `LSODA` is an automatic Runge–Kutta/BDF switch, not a port
-of ODEPACK's Adams/BDF LSODA: same purpose, different evaluation counts (see
-design.md).
+banded Jacobians (other than LSODA's), `quad_vec`, `cubature`, `tanhsinh`, `solve_bvp` and the
+legacy `ode` class. `LSODA` and `Odeint` are ODEPACK's Adams/BDF lsoda as SciPy
+ships it, with its options (`hmin`, `mxordn`, `mxords`, `tcrit`, banded
+Jacobians `ml`/`mu`, `min_step`, `lband`/`uband`): the
+same evaluation counts as SciPy's on its cases, an accuracy contract stated
+against a 300-bit reference (see docs/design.md).
+
+[docs/roadmap.md](https://github.com/go-numerics/integrate/blob/v0.3.0/docs/roadmap.md) lists what Julia's QuadGK, HCubature and
+OrdinaryDiffEq, R's deSolve and GSL do better, ranked by gain for cost, with an
+implementation source and an oracle for each item.
 
 ## License
 
-BSD 3-Clause; see [LICENSE](https://github.com/go-numerics/integrate/blob/v0.2.2/LICENSE).
+BSD 3-Clause; see [LICENSE](https://github.com/go-numerics/integrate/blob/v0.3.0/LICENSE).
