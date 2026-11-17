@@ -89,26 +89,31 @@ Full method, sources of every algorithm, negative control and limitations:
 ## Speed
 
 Accuracy has a price. Measured against SciPy 1.18.1 on one core (refbench
-v0.3.0, tag v0.13.0, 2026-11-13, 10 000-point calls, host load 6.5–8.0, valid
-run (151 rows, 11 rounds retried above the gate); ratios are Go time over SciPy
-time):
+v0.4.0 with only the bench module bumped, tag v0.20.0 at d415e46, 2026-11-16,
+darwin/arm64, 10 000-point calls, host load 4.0–8.0 (median 5.7), valid run (151
+rows, 2 rounds retried above the gate); ratios are Go time over SciPy time).
+SciPy is the only reference timed: the Julia worker (SpecialFunctions.jl,
+Bessels.jl) and the worst-ulp columns were not run, because the bench of v0.20.0
+has no wiring for them (the accuracy is in the tables above):
 
-- faster than SciPy: Gamma 0.84 (8.5 vs 10.1 ns/element; `nd.Gamma` 0.85),
-  LogGamma 0.76, LogBeta 0.58, ErfInv 0.49, ErfcInv 0.62, Ndtri 0.57, LogNdtr
-  0.59, Ndtr 0.84, Erf 0.89, Digamma 0.80, Beta 0.84, the order 0 and 1 Bessel
-  functions (J0 0.74, I0e 0.30, K1 0.93, K1e 0.37), the elliptic integrals
-  (0.37–0.43), Zeta 0.64, Polygamma 0.05, Comb 0.85, Factorial2 0.03, and the
-  integer orders `Jn` 0.18 (130 vs 736 ns/element) and `Kn` 0.28 (102 vs 363
-  ns);
-- ties: Logit 0.90, I1 0.97, Erfc 1.03, `nd.Erfc` 1.03 (`nd.I1` measured 1.52,
-  unexplained; rerun needed);
-- still slower, 1.08–1.54x: LogExpit 1.08, Xlogy 1.08, GammaQ 1.13, GammaP
-  1.18, Expit 1.20, GammaSign 1.22, Perm 1.22, Factorial of non-integers 1.22,
-  Yv 1.22, Jv 1.28, LogSumExp 1.47, GammaQInv 1.48, GammaPInv 1.54;
+- faster than SciPy: Gamma 0.83 (8.4 vs 10.0 ns/element; `nd.Gamma` 0.84),
+  LogGamma 0.76, LogBeta 0.59, ErfInv 0.49, ErfcInv 0.62, Ndtri 0.57, LogNdtr
+  0.60, Ndtr 0.84, Erf 0.88, Digamma 0.80, Beta 0.83, Logit 0.89, Log1pExp 0.92,
+  Zeta 0.65, Polygamma 0.05, Comb 0.86, Factorial2 0.03, LogSumExp 0.35, the
+  order 0 and 1 Bessel functions (J0 0.75, I0 0.91, I0e 0.29, K0 0.93, K1 0.92,
+  K1e 0.37), the elliptic integrals (0.37–0.46), the real orders `Jv` 0.47, `Yv`
+  0.54, `Kv` 0.60, `Kve` 0.58, `Ive` 0.37, and the integer orders `Jn` 0.18 (128
+  vs 722 ns/element), `Kn` 0.11 (40 vs 357 ns) and `In` 0.86;
+- ties (verdict tie, or within 3 percent): Erfc 1.00, Erfcx 0.98, I1 0.97,
+  LogExpit 1.08, `nd.K0` 0.98, `nd.Comb` 1.00;
+- still slower, 1.05–1.54x: Softmax 1.05, LogSoftmax 1.09, Xlogy 1.07, GammaQ
+  1.13, GammaP 1.17, Perm 1.20, Expit 1.23, Factorial of non-integers 1.23,
+  GammaSign 1.24, GammaQInv 1.48, GammaPInv 1.54 (`nd.Softmax` 1.20,
+  `nd.LogSoftmax` 1.26);
 - several times slower, where a double-double continued fraction or series
-  produces the rounded result: Iv 7.9, In 5.2, Softmax 4.8, LogSoftmax 4.1,
-  BetaIncInv 3.5, Binom 3.0, Yn 2.37 (91 vs 38 ns, from 33 in v0.8.0), Kve
-  2.4, Kv 2.3, BetaInc 2.1, Xlog1py 1.9, Ive 1.69 (open defects, #33).
+  produces the rounded result: BetaIncInv and BetaIncCInv 3.5, Binom 3.0, Yn 2.34
+  (88 vs 38 ns), BetaInc and BetaIncC 2.1, Xlog1py 1.9, Iv 1.77 (open defects,
+  #33).
 
 Since v0.5.6, `I1`, `I1e`, `K1` and `K1e` use the same fitted octave
 interpolants as `I0e` and `K0e` (and are more accurate: worst case against
